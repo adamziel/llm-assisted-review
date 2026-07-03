@@ -1161,8 +1161,9 @@ set -e
 cd {shlex.quote(str(workdir))}
 echo "Starting Codex reproduction session for {repo} {kind} #{number}"
 echo "Working directory: {workdir}"
+echo "Codex policy: workspace-write sandbox, never ask for approval, web search enabled"
 echo
-{shlex.quote(codex)} --cd {shlex.quote(str(workdir))} --sandbox workspace-write --ask-for-approval on-request --no-alt-screen "$(cat {shlex.quote(str(prompt_path))})"
+{shlex.quote(codex)} --cd {shlex.quote(str(workdir))} --sandbox workspace-write --ask-for-approval never --search --no-alt-screen "$(cat {shlex.quote(str(prompt_path))})"
 echo
 echo "Codex session ended. Files remain in: {workdir}"
 echo "Press Return to close this terminal."
