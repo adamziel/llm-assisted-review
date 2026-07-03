@@ -41,7 +41,7 @@ async function waitForPanel(page) {
       ['needs-design', '/local/scenarios/issues/102'],
       ['fast-merge', '/local/scenarios/pull/103'],
       ['needs-execution-plan', '/local/scenarios/pull/104'],
-      ['medium-review', '/local/scenarios/issues/105'],
+      ['medium-review', '/local/scenarios/pull/105'],
       ['close-not-actionable', '/local/scenarios/issues/106'],
       ['waiting-author', '/local/scenarios/issues/108'],
       ['no-capacity', '/local/scenarios/issues/109'],

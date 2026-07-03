@@ -444,14 +444,20 @@ def scenario_catalog() -> dict[int, dict]:
             "reviews": [],
         },
         105: {
-            "type": "issue",
+            "type": "pr",
             "title": "Add project-specific server headers for local previews",
             "caption": "Medium review with a clear review budget",
-            "body": "Support project-specific server headers for advanced local previews. This is in scope and concrete, but it should stay to one behavior change with tests, manual verification, and rollback notes.",
+            "body": "Implements project-specific server headers for advanced local previews. This is in scope and concrete, but it should stay to one behavior change with tests, manual verification, and rollback notes.",
             "labels": ["[Type] Enhancement"],
             "state": "OPEN",
             "author": {"login": "preview-builder"},
             "updatedAt": "2026-07-03T08:04:00Z",
+            "isDraft": False,
+            "additions": 290,
+            "deletions": 80,
+            "changedFiles": 3,
+            "headRefOid": "scenario-medium-review",
+            "reviews": [],
         },
         106: {
             "type": "issue",
@@ -856,6 +862,8 @@ def action_summary(suggestion: dict, candidates: list[dict]) -> str:
         return "Route review through the existing candidate PR instead of asking the reporter for more process."
     if action_id == "needs-rereview":
         return "Ask the previous reviewer or area maintainer to re-test the updated PR."
+    if action_id == "needs-owner":
+        return "No patch is attached; someone needs to own reproduction and the smallest fix/test path."
     return suggestion.get("shortTitle") or suggestion.get("status") or "Suggested action"
 
 
@@ -891,7 +899,7 @@ def has_reproduction(source: dict) -> bool:
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 4,
+        "triageVersion": 5,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -1180,14 +1188,16 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
     if item_type == "pr" and (lines <= 800 or files <= 6):
         return choose("medium-review", "make-reviewable", "Medium review", "The change is concrete and reviewable, but larger than fast-track; it needs an explicit review budget and verification path.")
 
-    if "documentation" in text or "docs" in text:
+    if item_type == "pr" and ("documentation" in text or "docs" in text):
         return choose("medium-review", "make-reviewable", "Medium review", "Documentation work is in scope, but this should still be kept to a reviewable slice with clear verification.")
 
     if any(word in text for word in bug_terms):
         has_detail = len(body.strip()) > 500 or "```" in body or "steps" in text or "reproduce" in text or "summary" in text or "problem" in text
         if not has_detail:
             return choose("needs-proof", "reproduction", "Needs reproduction", "The report looks actionable only after exact reproduction details or logs are available.")
-        return choose("medium-review", "make-reviewable", "Medium review", "The report includes enough detail for a focused fix/test path, but it still needs scoped review and verification.")
+        if item_type == "issue":
+            return choose("needs-owner", "no-capacity", "Needs owner", "The report has enough signal to investigate, but there is no patch attached; the next step is an owner for reproduction and the smallest fix/test.")
+        return choose("medium-review", "make-reviewable", "Medium review", "The change includes enough detail for a focused review path, but it still needs scoped verification.")
 
     if has_design_risk:
         variant = "public-api" if any(word in text for word in ["api", "schema", "sync", "oauth", "storage model", "persistent storage"]) else "product-direction"
@@ -1198,6 +1208,9 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
 
     if any(term in text for term in ["owner", "sponsor", "maintainer"]):
         return choose("needs-owner", "no-capacity", "Needs owner", "The item may be valid, but the next owner/reviewer is not obvious from the current context.")
+
+    if item_type == "issue":
+        return choose("needs-owner", "no-capacity", "Needs owner", "There is no patch attached, so the next step is an owner for reproduction, scope, and the smallest fix/test path.")
 
     return choose("medium-review", "make-reviewable", "Medium review", "The item appears concrete enough for the normal stewardship queue, but it needs reviewable scope and verification before maintainers spend review time.")
 
@@ -1318,10 +1331,16 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
             "The path back is for someone to volunteer as owner, propose the smallest reviewable slice, and stay with it through follow-up."
         )
     elif action_id == "needs-owner":
-        comment = (
-            f"{prefix}“{subject}” looks like a plausible area of work, but it needs a clear owner before maintainers spend review time on it. "
-            "A good next step would be for someone to volunteer for the smallest owned slice, list the files/API surfaces affected, and stay with it through review."
-        )
+        if item_type == "issue":
+            comment = (
+                f"{prefix}Thanks for reporting “{subject}”. This has enough signal to investigate, but there is no patch to review yet. "
+                "The next useful step is for someone to own reproduction and propose the smallest fix or test that verifies the problem."
+            )
+        else:
+            comment = (
+                f"{prefix}“{subject}” looks like a plausible area of work, but it needs a clear owner before maintainers spend review time on it. "
+                "A good next step would be for someone to volunteer for the smallest owned slice, list the files/API surfaces affected, and stay with it through review."
+            )
     elif action_id == "close-not-actionable":
         if suggestion.get("variantId") == "stale-waiting":
             comment = (

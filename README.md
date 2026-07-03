@@ -32,7 +32,7 @@ The default UI is intentionally compact: list pages show a **Triage: [action]** 
 
 Detail panels can be minimized or closed for the current page, and **Reconsider** forces a fresh local recommendation instead of reusing the cached result.
 
-The panel shows the evidence it used, including code size and possible duplicates. PRs show changed files and line counts; issues without a patch say that no files or lines changed; issues with candidate PRs show candidate PR sizes, reproduction signal, review state, and the resulting suggested action.
+The panel shows the evidence it used, including code size and possible duplicates. PRs show changed files and line counts; issues without a patch say that no files or lines changed and route to proof/owner/duplicate/design work rather than code-review sizing; issues with candidate PRs show candidate PR sizes, reproduction signal, review state, and the resulting suggested action.
 
 For **Fast merge** and **Medium review** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
 

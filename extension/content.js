@@ -513,7 +513,7 @@ ${error.message}`;
       'competing-prs': ['Choose', 'Choose PR', 'Choose PR path'],
       'narrow-fast-path': ['Fast path', 'Fast path', 'Use narrow fix first'],
       'needs-execution-plan': ['Plan', 'Plan first', 'Needs execution plan'],
-      'needs-owner': ['Owner', 'Find owner', 'Needs owner'],
+      'needs-owner': ['Owner', 'Needs owner', 'Needs owner'],
       'no-capacity': ['Capacity', 'No capacity', 'Useful, no capacity'],
       'close-not-actionable': ['Close', 'Close', 'Close quickly'],
       'duplicate-of': ['Duplicate', 'Duplicate', 'Duplicate of'],
@@ -640,7 +640,7 @@ ${error.message}`;
 
   function updateLocalActions(panel) {
     const root = panel.querySelector('[data-role="local-actions"]');
-    if (root) root.hidden = !['fast-merge', 'medium-review'].includes(panel.dataset.action);
+    if (root) root.hidden = !['fast-merge', 'medium-review', 'needs-owner'].includes(panel.dataset.action);
   }
 
   function setPanelMinimized(panel, minimized) {
