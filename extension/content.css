@@ -4,14 +4,13 @@
   justify-content: center;
   gap: 6px;
   flex: 0 0 auto;
-  height: 30px;
+  height: 26px;
   margin-left: 8px;
-  padding: 4px 11px;
+  padding: 3px 9px;
   border: 1px solid var(--borderColor-default, #d0d7de);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--bgColor-default, #fff);
   color: var(--fgColor-default, #24292f);
-  box-shadow: 0 1px 0 rgba(27,31,36,.04);
   font-size: 12px;
   font-weight: 650;
   line-height: 18px;
@@ -32,21 +31,19 @@
 }
 .codex-triage-list-button::before {
   content: "";
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: #6e7781;
 }
-.codex-triage-list-button::after {
-  content: "⌄";
-  color: var(--fgColor-muted, #57606a);
-  font-size: 11px;
-  line-height: 1;
-  margin-left: 1px;
-}
 .codex-triage-list-button:hover {
-  border-color: var(--borderColor-accent-emphasis, #0969da);
+  border-color: var(--borderColor-emphasis, #6e7781);
   background: var(--bgColor-muted, #f6f8fa);
+}
+.codex-triage-list-button:focus:not(:focus-visible) { outline: none; }
+.codex-triage-list-button:focus-visible {
+  outline: 2px solid var(--focus-outlineColor, #0969da);
+  outline-offset: 2px;
 }
 .codex-triage-list-button[data-state="loading"] { color: var(--fgColor-muted, #57606a); }
 .codex-triage-list-button[data-state="error"] { color: #d1242f; }
