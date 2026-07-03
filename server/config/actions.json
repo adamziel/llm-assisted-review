@@ -1,0 +1,200 @@
+{
+  "labels": {
+    "statusPrefix": "[Status]"
+  },
+  "actions": [
+    {
+      "id": "needs-proof",
+      "title": "Ask for proof",
+      "statusLabel": "[Status] Needs Proof",
+      "variants": [
+        {
+          "id": "reproduction",
+          "title": "Missing reproduction",
+          "comment": "Thanks for reporting this. To investigate it, we need a minimal reproduction: exact URL or Blueprint, browser/runtime version, expected behavior, actual behavior, and any console/error output. If you can add that, we can triage the next step."
+        },
+        {
+          "id": "benchmark",
+          "title": "Needs benchmark",
+          "comment": "This looks plausible, but we need measurements before reviewing a change. Could you add a before/after benchmark or profiling output, plus the command or steps used to collect it?"
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Needs Proof"
+        }
+      ]
+    },
+    {
+      "id": "waiting-author",
+      "title": "Waiting on contributor",
+      "variants": [
+        {
+          "id": "recently-asked",
+          "title": "Already asked for follow-up",
+          "comment": ""
+        }
+      ],
+      "operations": []
+    },
+    {
+      "id": "needs-design",
+      "title": "Move to proposal/design",
+      "statusLabel": "[Status] Needs Design",
+      "variants": [
+        {
+          "id": "public-api",
+          "title": "Public API / contract",
+          "comment": "Thanks \u2014 this touches a public Playground contract, so we should agree on the shape before implementation review. Please move this into a proposal with the user problem, non-goals, affected APIs, compatibility risks, test plan, and smallest first slice."
+        },
+        {
+          "id": "product-direction",
+          "title": "Product direction",
+          "comment": "This is useful directionally, but it needs product/design agreement before code review. Please move it to a proposal or GitHub Discussion with the user journey, alternatives considered, and the smallest change that would validate the idea."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Needs Design"
+        }
+      ]
+    },
+    {
+      "id": "ready-review",
+      "title": "Ready for review",
+      "statusLabel": "[Status] Ready for Review",
+      "variants": [
+        {
+          "id": "small-scoped",
+          "title": "Small scoped change",
+          "comment": "This looks scoped and reviewable. Next step: maintainer review, with tests/manual verification checked before merge."
+        }
+      ],
+      "operations": [
+        {
+          "type": "addLabel",
+          "label": "[Status] Ready for Review"
+        }
+      ]
+    },
+    {
+      "id": "needs-slicing",
+      "title": "Accepted direction, split first",
+      "statusLabel": "[Status] Accepted, Needs Slicing",
+      "variants": [
+        {
+          "id": "large-pr",
+          "title": "Large PR needs slices",
+          "comment": "The direction may be useful, but this is too large to review safely as one PR. Please split it into an implementation plan and the smallest first slice with standalone value. We can resume implementation review once the slice plan is clear."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Accepted, Needs Slicing"
+        }
+      ]
+    },
+    {
+      "id": "no-capacity",
+      "title": "Useful, no capacity",
+      "statusLabel": "[Status] No Maintainer Capacity",
+      "variants": [
+        {
+          "id": "no-reviewer-capacity",
+          "title": "No reviewer capacity",
+          "comment": "This looks useful and aligned, but we do not currently have maintainer capacity to review or carry it. Leaving it marked as needing capacity; the path back is for someone to volunteer as owner, propose the smallest reviewable slice, and stay with it through follow-up."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] No Maintainer Capacity"
+        }
+      ]
+    },
+    {
+      "id": "needs-owner",
+      "title": "Needs owner",
+      "statusLabel": "[Status] Needs Owner",
+      "variants": [
+        {
+          "id": "no-capacity",
+          "title": "No reviewer capacity",
+          "comment": "This remains a valid area of work, but we do not currently have a clear owner or reviewer capacity. Leaving this marked as needing an owner; a good next step would be for someone to propose the smallest owned slice and volunteer to maintain it through review."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Needs Owner"
+        }
+      ]
+    },
+    {
+      "id": "close-not-actionable",
+      "title": "Decline / close",
+      "statusLabel": "[Status] Closing Candidate",
+      "variants": [
+        {
+          "id": "insufficient-info",
+          "title": "Insufficient information",
+          "comment": "Closing this because we do not have enough information to act on it. If someone can reproduce it with current Playground, please open a fresh issue with a minimal URL or Blueprint, exact steps, expected behavior, actual behavior, and console/error output."
+        },
+        {
+          "id": "out-of-scope",
+          "title": "Out of scope",
+          "comment": "Thanks for the suggestion. This is outside the current scope of WordPress Playground, so we are closing it to keep the queue focused. A future proposal can link back here if the scope changes and there is a concrete owner."
+        },
+        {
+          "id": "stale-waiting",
+          "title": "No response after follow-up",
+          "comment": "Closing this because we asked for more information and have not received enough detail to move it forward. If someone can still reproduce this in current Playground, please open a fresh issue with the exact URL or Blueprint, steps, expected behavior, actual behavior, and console/error output."
+        },
+        {
+          "id": "research-note",
+          "title": "Research note / not scheduled",
+          "comment": "This is useful context, but it is not current actionable work. Closing to keep the issue queue reviewable. Future proposals can link back to this discussion when there is a concrete use case, owner, and first slice."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "close"
+        }
+      ]
+    },
+    {
+      "id": "no-action",
+      "title": "No action",
+      "statusLabel": "[Status] No Action",
+      "variants": [
+        {
+          "id": "already-closed",
+          "title": "Already closed/merged",
+          "comment": ""
+        }
+      ],
+      "operations": []
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub Triage Copilot",
+  "description": "Local-first triage suggestions for GitHub issues and pull requests.",
+  "version": "0.1.0",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*",
+    "http://localhost:8765/*",
+    "https://github.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*/*/issues*",
+        "https://github.com/*/*/pull*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "homepage_url": "https://github.com/adamziel/llm-assisted-review"
+}

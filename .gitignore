@@ -1,0 +1,15 @@
+# Local companion runtime state
+server/triage.sqlite3
+*.sqlite3
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# OS/editor noise
+.DS_Store
+.vscode/
+.idea/
+
+# Packaged release artifacts
+*.zip

@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "actionId": { "type": "string" },
+    "variantId": { "type": "string" },
+    "status": { "type": "string" },
+    "shortTitle": { "type": "string" },
+    "justification": { "type": "string" },
+    "publicComment": { "type": "string" },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": { "type": "string" },
+          "label": { "type": "string" }
+        },
+        "required": ["type"]
+      }
+    }
+  },
+  "required": ["actionId", "variantId", "status", "shortTitle", "justification", "publicComment", "operations"]
+}
