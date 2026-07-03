@@ -502,6 +502,7 @@ ${error.message}`;
       'needs-owner': ['Find owner', 'Needs someone accountable before review'],
       'no-capacity': ['Defer—no capacity', 'Aligned, but no reviewer capacity now'],
       'close-not-actionable': ['Close issue', 'Out of scope, stale, or not actionable'],
+      'close-solved': ['Close as solved', 'Merged PR resolved the issue'],
       'duplicate-of': ['Close as duplicate', 'Point to the canonical issue'],
       'no-action': ['None needed', 'Already handled or no mutation needed'],
     };
@@ -521,7 +522,8 @@ ${error.message}`;
     if (op.type === 'addLabel') return `Add label: ${op.label}`;
     if (op.type === 'removeLabel') return `Remove label: ${op.label}`;
     if (op.type === 'requestReview') return `Request re-review from @${op.reviewer}`;
-    if (op.type === 'close') return 'Will close issue/PR';
+    if (op.type === 'close' && op.reason === 'completed') return 'Close as completed';
+    if (op.type === 'close') return 'Close issue/PR';
     return op.type;
   }
 
@@ -546,6 +548,9 @@ ${error.message}`;
       if (variantId === 'stale-waiting') return { short: 'Close', list: 'Close stale issue', long: 'Close stale issue' };
       if (variantId === 'research-note') return { short: 'Close', list: 'Close research note', long: 'Close research note' };
       return { short: 'Close', list: 'Close—can’t act', long: 'Close issue—can’t act yet' };
+    }
+    if (actionId === 'close-solved') {
+      return { short: 'Close', list: 'Close as solved', long: 'Close as solved' };
     }
     const map = {
       'fast-merge': ['Review', 'Fast-review PR', 'Fast-review PR'],

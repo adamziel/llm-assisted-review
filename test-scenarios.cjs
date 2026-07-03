@@ -46,6 +46,7 @@ async function waitForPanel(page) {
       ['waiting-author', '/local/scenarios/issues/108'],
       ['no-capacity', '/local/scenarios/issues/109'],
       ['duplicate-of', '/local/scenarios/issues/110'],
+      ['close-solved', '/local/scenarios/issues/111'],
       ['no-action', '/local/scenarios/issues/107'],
     ];
 

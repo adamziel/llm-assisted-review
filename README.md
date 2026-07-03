@@ -36,7 +36,7 @@ The panel shows the evidence it used, including code size and possible duplicate
 
 For **Fast merge** and **Medium review** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
 
-The action switcher uses operator-oriented labels such as **None needed**, **Wait for response**, **Review the PR**, **Review narrow PR**, **Ask for details**, and **Close as duplicate** instead of queue names alone. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
+The action switcher uses operator-oriented labels such as **None needed**, **Wait for response**, **Review the PR**, **Review narrow PR**, **Ask for details**, **Close as solved**, and **Close as duplicate** instead of queue names alone. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
 
 ## Screenshot
 
@@ -50,6 +50,7 @@ The action switcher uses operator-oriented labels such as **None needed**, **Wai
 - **Needs design acceptance**: public API, product direction, or architecture needs agreement before implementation review.
 - **Accepted design, needs execution plan**: direction may be accepted, but implementation review still needs slices, owners, tests, and rollback boundaries.
 - **Close quickly**: stale after follow-up, out of scope, insufficient information, or otherwise not actionable.
+- **Close as solved**: a linked candidate PR has merged; post a short pointer to the merged PR and close the issue as completed.
 - **Waiting on contributor**: a maintainer already asked for something; no new public action yet, just wait until the follow-up window expires.
 - **Has candidate PR**: the issue already has an implementation path; route review through that PR.
 - **Needs re-review**: the author responded after reviewer feedback; ask the previous reviewer or area maintainer to re-test.

@@ -90,6 +90,7 @@
 .codex-triage-list-button[data-action="needs-owner"]::before { background: #57606a; }
 .codex-triage-list-button[data-action="no-capacity"]::before { background: #8c6d1f; }
 .codex-triage-list-button[data-action="close-not-actionable"]::before { background: #d1242f; }
+.codex-triage-list-button[data-action="close-solved"]::before { background: #1a7f37; }
 .codex-triage-list-button[data-action="duplicate-of"]::before { background: #d1242f; }
 .codex-triage-list-button[data-action="no-action"]::before { background: #6e7781; }
 

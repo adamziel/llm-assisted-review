@@ -247,6 +247,26 @@
       ]
     },
     {
+      "id": "close-solved",
+      "title": "Close as solved",
+      "variants": [
+        {
+          "id": "merged-pr",
+          "title": "Solved by merged PR",
+          "comment": "Thanks for the report. This should now be resolved by the merged PR, so I’m closing this as solved. If you still see the problem in current Playground, please comment with the current reproduction and we can reopen or continue from there."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "close",
+          "reason": "completed"
+        }
+      ]
+    },
+    {
       "id": "duplicate-of",
       "title": "Duplicate of",
       "variants": [

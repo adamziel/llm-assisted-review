@@ -242,7 +242,10 @@ def handle_apply(payload: dict) -> dict:
             if label:
                 results.append(run_gh(["gh", "issue", "edit", str(number), "--repo", repo, "--remove-label", label]))
         elif op_type == "close":
-            results.append(run_gh(["gh", "pr" if item_type == "pr" else "issue", "close", str(number), "--repo", repo]))
+            cmd = ["gh", "pr" if item_type == "pr" else "issue", "close", str(number), "--repo", repo]
+            if item_type == "issue" and op.get("reason"):
+                cmd += ["--reason", str(op["reason"])]
+            results.append(run_gh(cmd))
         elif op_type == "requestReview":
             reviewer = str(op.get("reviewer") or "").strip().lstrip("@")
             if item_type == "pr" and reviewer:
@@ -516,6 +519,36 @@ def scenario_catalog() -> dict[int, dict]:
                 }
             ],
         },
+        111: {
+            "type": "issue",
+            "title": "View transitions crash wp-admin in Chrome",
+            "caption": "Solved by a merged candidate PR",
+            "body": "WordPress Playground crashes in Chrome when I open Appearance → Themes.",
+            "labels": ["[Type] Bug"],
+            "state": "OPEN",
+            "author": {"login": "chrome-reporter"},
+            "updatedAt": "2026-07-03T14:10:00Z",
+            "comments": [
+                {
+                    "author": {"login": "maintainer"},
+                    "body": "I can reproduce this. #3886 disables the view transition path until Chrome is fixed.",
+                    "createdAt": "2026-07-03T13:00:00Z",
+                }
+            ],
+            "candidatePRs": [
+                {
+                    "number": 3886,
+                    "title": "Disable admin view transitions in Chromium",
+                    "url": "https://github.com/WordPress/wordpress-playground/pull/3886",
+                    "state": "MERGED",
+                    "mergedAt": "2026-07-03T14:02:14Z",
+                    "additions": 75,
+                    "deletions": 4,
+                    "linesChanged": 79,
+                    "changedFiles": 3,
+                }
+            ],
+        },
         107: {
             "type": "issue",
             "title": "Already closed duplicate",
@@ -552,6 +585,7 @@ def summarize_source(source: dict) -> dict:
                 "title": pr.get("title"),
                 "url": pr.get("url"),
                 "state": pr.get("state"),
+                "mergedAt": pr.get("mergedAt"),
                 "labels": [label_name(label) for label in pr.get("labels", [])],
                 "linesChanged": pr.get("linesChanged"),
                 "changedFiles": pr.get("changedFiles"),
@@ -703,7 +737,7 @@ def issue_keywords(text: str) -> list[str]:
 
 
 def fetch_pr_summary(repo: str, number: int) -> dict | None:
-    fields = ["number", "title", "url", "state", "author", "createdAt", "updatedAt", "isDraft", "additions", "deletions", "changedFiles", "labels", "reviews", "comments", "commits"]
+    fields = ["number", "title", "url", "state", "author", "createdAt", "updatedAt", "closedAt", "mergedAt", "isDraft", "additions", "deletions", "changedFiles", "labels", "reviews", "comments", "commits"]
     try:
         raw = subprocess.check_output(
             ["gh", "pr", "view", str(number), "--repo", repo, "--json", ",".join(fields)],
@@ -794,7 +828,12 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
     if candidates:
         smallest = candidates[0]
         rows.append({"label": "Reproduction", "value": reproduction or "not clear"})
-        rows.append({"label": "Review target", "links": [candidate_pr_link(smallest)]})
+        target = merged_candidate_pr(candidates) if suggestion.get("actionId") == "close-solved" else smallest
+        target = target or smallest
+        target_label = "Merged PR" if suggestion.get("actionId") == "close-solved" or merged_candidate_pr(candidates) else "Review target"
+        rows.append({"label": target_label, "links": [candidate_pr_link(target)]})
+        if suggestion.get("actionId") == "close-solved":
+            return rows
         broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) > (smallest.get("linesChanged") or 0)]
         if broader:
             rows.append({"label": "Other candidates", "links": [candidate_pr_link(pr) for pr in broader[:2]]})
@@ -805,12 +844,16 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
 
 
 def action_links(item_type: str, source: dict, suggestion: dict) -> list[dict]:
-    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path", "no-action"}:
+    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path", "no-action", "close-solved"}:
         return []
     links = []
-    for pr in (source.get("candidatePRs") or [])[:3]:
+    candidates = source.get("candidatePRs") or []
+    if suggestion.get("actionId") == "close-solved":
+        candidates = sorted(candidates, key=lambda pr: str(pr.get("state") or "").upper() != "MERGED")
+    for pr in candidates[:3]:
         if pr.get("url"):
-            links.append(candidate_pr_link(pr, label=f"Review PR #{pr.get('number')}"))
+            prefix = "Merged PR" if suggestion.get("actionId") == "close-solved" or str(pr.get("state") or "").upper() == "MERGED" else "Review PR"
+            links.append(candidate_pr_link(pr, label=f"{prefix} #{pr.get('number')}"))
     return links
 
 
@@ -977,7 +1020,7 @@ def discussion_text(source: dict) -> str:
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 8,
+        "triageVersion": 9,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -997,6 +1040,8 @@ def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) ->
             {
                 "number": pr.get("number"),
                 "title": pr.get("title"),
+                "state": pr.get("state"),
+                "mergedAt": pr.get("mergedAt"),
                 "linesChanged": pr.get("linesChanged"),
                 "reviewState": pr.get("reviewState"),
             }
@@ -1234,6 +1279,9 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
     if item_type == "issue" and source.get("candidatePRs"):
         candidates = source["candidatePRs"]
         smallest = candidates[0]
+        merged = merged_candidate_pr(candidates)
+        if merged:
+            return choose("close-solved", "merged-pr", "Close as solved", f"Candidate PR #{merged['number']} is merged, so the issue should be closed as solved with a short pointer to that PR.")
         active = active_candidate_pr(candidates)
         if active:
             return choose("no-action", "active-pr", "No issue action", f"This issue is already being handled in active PR #{active['number']}; keep the work on that PR instead of mutating the issue.")
@@ -1318,6 +1366,13 @@ def active_candidate_pr(candidates: list[dict]) -> dict | None:
             continue
         review = pr.get("reviewState") or {}
         if review.get("latestReviewer") or review.get("latestAuthorActivity"):
+            return pr
+    return None
+
+
+def merged_candidate_pr(candidates: list[dict]) -> dict | None:
+    for pr in candidates:
+        if str(pr.get("state") or "").upper() == "MERGED" or pr.get("mergedAt"):
             return pr
     return None
 
@@ -1461,6 +1516,14 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
                 f"{prefix}Closing this for now because “{subject}” is not actionable with the current information. "
                 "If someone can reproduce it in current Playground, please open a fresh issue with the exact URL or Blueprint, steps, expected behavior, actual behavior, and console/error output."
             )
+    elif action_id == "close-solved":
+        merged = merged_candidate_pr(source.get("candidatePRs") or []) or {}
+        number = merged.get("number")
+        pr_text = f"#{number}" if number else "the merged PR"
+        comment = (
+            f"{prefix}Thanks for the report. This should now be resolved by {pr_text}, so I’m closing this as solved. "
+            "If you still see the problem in current Playground, please comment with the current reproduction and we can reopen or continue from there."
+        )
     elif action_id == "duplicate-of":
         duplicate = (source.get("possibleDuplicates") or [{}])[0]
         number = duplicate.get("number")
