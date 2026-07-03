@@ -198,8 +198,8 @@ ${error.message}`;
     const left = Math.max(18, Math.min(window.innerWidth - width - 18, rect.right - width));
     const top = Math.max(18, Math.min(window.innerHeight - measuredHeight - 18, rect.bottom + 8));
     panel.style.width = `${width}px`;
-    panel.style.left = `${left}px`;
-    panel.style.top = `${top}px`;
+    panel.style.left = `${left + window.scrollX}px`;
+    panel.style.top = `${top + window.scrollY}px`;
     panel.style.right = 'auto';
     panel.style.bottom = 'auto';
   }

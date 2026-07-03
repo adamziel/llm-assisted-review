@@ -466,13 +466,13 @@
 .codex-triage-statusline { min-height: 0; color: var(--fgColor-muted, #57606a); font-size: 12px; }
 .codex-triage-statusline:empty { display: none; }
 .codex-triage-popover {
-  position: fixed;
+  position: absolute;
   top: auto;
   z-index: 1000;
   right: 18px;
   bottom: 18px;
   width: min(560px, calc(100vw - 36px));
-  max-height: min(660px, calc(100vh - 36px));
+  max-height: none;
   overflow: visible;
 }
 .codex-triage-panel[data-surface="popover"] textarea[data-role="comment"] { min-height: 118px; }
