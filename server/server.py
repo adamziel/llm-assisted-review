@@ -686,15 +686,20 @@ def evidence_rows(item_type: str, source: dict, suggestion: dict) -> list[dict]:
 def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
     rows = []
     candidates = source.get("candidatePRs") or []
+    if not candidates:
+        rows.append({"label": "Change size", "value": "issue only; no files or lines changed"})
+        rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
+        return rows
     if candidates:
+        rows.append({"label": "Issue patch", "value": "none attached; candidate PR sizes below"})
         rows.append({"label": "Issue has reproduction", "value": "yes" if has_reproduction(source) else "not clear"})
         linked = ", ".join(f"#{pr['number']}" for pr in candidates)
         rows.append({"label": "Candidate PRs", "value": linked})
         smallest = candidates[0]
-        rows.append({"label": "Smallest candidate", "value": f"#{smallest['number']}, {smallest.get('linesChanged', 0)} changed lines"})
+        rows.append({"label": "Smallest candidate", "value": f"#{smallest['number']}, {change_size_text(smallest)}"})
         broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) > (smallest.get("linesChanged") or 0)]
         if broader:
-            rows.append({"label": "Broader candidate", "value": ", ".join(f"#{pr['number']}, {pr.get('linesChanged', 0)} changed lines" for pr in broader[:2])})
+            rows.append({"label": "Broader candidate", "value": ", ".join(f"#{pr['number']}, {change_size_text(pr)}" for pr in broader[:2])})
         review = candidate_review_summary(candidates)
         if review:
             rows.append({"label": "Review state", "value": review})
@@ -704,10 +709,7 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
 
 def pr_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
     rows = []
-    lines = int(source.get("additions") or 0) + int(source.get("deletions") or 0)
-    files = source.get("changedFiles")
-    if lines or files:
-        rows.append({"label": "Change size", "value": f"{lines} changed lines" + (f", {files} files" if files else "")})
+    rows.append({"label": "Change size", "value": change_size_text(source)})
     if source.get("isDraft"):
         rows.append({"label": "PR state", "value": "draft"})
     review = source.get("reviewState") or {}
@@ -717,6 +719,25 @@ def pr_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
         rows.append({"label": "Latest author activity", "value": event_summary(review["latestAuthorActivity"])})
     rows.append({"label": "Suggested action", "value": action_summary(suggestion, [])})
     return rows
+
+
+def change_size_text(source: dict) -> str:
+    additions = int(source.get("additions") or 0)
+    deletions = int(source.get("deletions") or 0)
+    lines = int(source.get("linesChanged") or additions + deletions)
+    files = source.get("changedFiles")
+    if additions or deletions:
+        line_text = f"+{additions}/−{deletions} ({lines} changed lines)"
+    else:
+        line_text = f"{lines} changed lines"
+    if files:
+        try:
+            file_count = int(files)
+        except (TypeError, ValueError):
+            file_count = 0
+        noun = "file" if file_count == 1 else "files"
+        return f"{files} {noun}, {line_text}"
+    return line_text
 
 
 def candidate_review_summary(candidates: list[dict]) -> str:
