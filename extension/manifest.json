@@ -9,13 +9,16 @@
   "host_permissions": [
     "http://127.0.0.1:8765/*",
     "http://localhost:8765/*",
-    "https://github.com/*"
+    "https://github.com/WordPress/wordpress-playground/*",
+    "https://github.com/wordpress/wordpress-playground/*"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://github.com/*/*/issues*",
-        "https://github.com/*/*/pull*"
+        "https://github.com/WordPress/wordpress-playground/issues*",
+        "https://github.com/WordPress/wordpress-playground/pull*",
+        "https://github.com/wordpress/wordpress-playground/issues*",
+        "https://github.com/wordpress/wordpress-playground/pull*"
       ],
       "js": [
         "content.js"

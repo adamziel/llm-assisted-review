@@ -21,6 +21,8 @@ HOST = os.environ.get("TRIAGE_HOST", "127.0.0.1")
 PORT = int(os.environ.get("TRIAGE_PORT", "8765"))
 PROVIDER = os.environ.get("TRIAGE_PROVIDER", "heuristic")
 ALLOW_APPLY = os.environ.get("TRIAGE_ALLOW_APPLY") == "1"
+ALLOWED_REPO = "WordPress/wordpress-playground"
+FIXTURE_REPO = "local/scenarios"
 
 
 def main() -> None:
@@ -173,7 +175,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def handle_suggest(payload: dict) -> dict:
-    repo = require(payload, "repo")
+    repo = ensure_supported_repo(require(payload, "repo"), allow_fixture=True)
     item_type = normalize_type(require(payload, "type"))
     number = int(require(payload, "number"))
     force = bool(payload.get("force"))
@@ -204,10 +206,11 @@ def handle_suggest(payload: dict) -> dict:
 
 
 def handle_apply(payload: dict) -> dict:
+    repo = ensure_supported_repo(require(payload, "repo"))
+
     if not ALLOW_APPLY:
         return {"ok": False, "dryRun": True, "message": "Submitting is disabled. Restart with TRIAGE_ALLOW_APPLY=1.", "operations": payload.get("operations", [])}
 
-    repo = require(payload, "repo")
     item_type = normalize_type(require(payload, "type"))
     number = int(require(payload, "number"))
     comment = (payload.get("comment") or "").strip()
@@ -815,6 +818,14 @@ def require(payload: dict, key: str):
     if value in (None, ""):
         raise ValueError(f"missing required field: {key}")
     return value
+
+
+def ensure_supported_repo(repo: str, allow_fixture: bool = False) -> str:
+    if repo.lower() == ALLOWED_REPO.lower():
+        return ALLOWED_REPO
+    if allow_fixture and repo == FIXTURE_REPO:
+        return repo
+    raise ValueError(f"this companion is currently restricted to {ALLOWED_REPO}")
 
 
 def normalize_type(value: str) -> str:

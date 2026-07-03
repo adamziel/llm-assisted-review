@@ -1,6 +1,8 @@
 # GitHub Triage Copilot MVP
 
-Local-first GitHub triage assistant for WordPress Playground-style issue/PR stewardship.
+Local-first GitHub triage assistant for WordPress Playground issue/PR stewardship.
+
+This MVP is intentionally restricted to `WordPress/wordpress-playground`.
 
 It has two pieces:
 
@@ -24,7 +26,7 @@ Then load the unpacked extension from:
 extension/
 ```
 
-Open a GitHub issue or PR page. A **Triage** panel should appear.
+Open a `WordPress/wordpress-playground` issue or PR page. A **Triage** panel should appear.
 
 The default UI is intentionally compact: list pages show a subtle next-action marker, and detail pages show the proposed action, a short private rationale, and an inline editable draft reply. The small arrow beside the action title opens a menu for swapping to a different stewardship action.
 
@@ -61,7 +63,7 @@ By default it uses the deterministic heuristic provider and does not need Codex 
 
 This repository is safe to publish as source code. It should not contain tokens, API keys, cookies, GitHub credentials, or Codex credentials. Runtime state such as `server/triage.sqlite3`, `__pycache__/`, and zip artifacts are ignored by `.gitignore` and excluded from the packaged release zip.
 
-The extension requests host access only for GitHub and the local companion URL (`http://127.0.0.1:8765/*`). GitHub mutations are disabled by default and require starting the companion with `TRIAGE_ALLOW_APPLY=1`.
+The extension requests host access only for `https://github.com/WordPress/wordpress-playground/*` and the local companion URL (`http://127.0.0.1:8765/*`). GitHub mutations are disabled by default and require starting the companion with `TRIAGE_ALLOW_APPLY=1`.
 
 ## Optional Codex provider
 

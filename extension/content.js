@@ -1,5 +1,7 @@
 (() => {
   const API = 'http://127.0.0.1:8765';
+  const ALLOWED_REPO = 'WordPress/wordpress-playground';
+  const FIXTURE_REPO = 'local/scenarios';
   const seenRows = new WeakSet();
   const suggestionCache = new Map();
 
@@ -34,8 +36,11 @@
     const [owner, name, area, number] = parts;
     if (!owner || !name) return null;
     if (!['issues', 'pull', 'pulls'].includes(area)) return null;
+    const parsedRepo = `${owner}/${name}`;
+    const repo = parsedRepo.toLowerCase() === ALLOWED_REPO.toLowerCase() ? ALLOWED_REPO : parsedRepo;
+    if (repo !== ALLOWED_REPO && repo !== FIXTURE_REPO) return null;
     return {
-      repo: `${owner}/${name}`,
+      repo,
       type: area === 'pull' || area === 'pulls' ? 'pr' : 'issue',
       number: number && /^\d+$/.test(number) ? Number(number) : null,
       area,
