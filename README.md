@@ -34,29 +34,32 @@ Detail panels can be minimized or closed for the current page, and **Reconsider*
 
 When the companion finds candidate PRs, the panel shows the evidence it used: reproduction signal, candidate PR numbers, smallest/broader patch size, review state, and the resulting suggested action.
 
-For **Review normally** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
+For **Fast merge** and **Medium review** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
 
-The action switcher intentionally shows only the simple stewardship queues. More specific paths such as candidate PRs, re-review, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
+The action switcher shows the six core stewardship queues. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
 
 ## Screenshot
 
-![Decline / close triage workflow](docs/assets/triage-copilot-scenario-close-not-actionable.png)
+![Close quickly triage workflow](docs/assets/triage-copilot-scenario-close-not-actionable.png)
 
 ## Stewardship actions covered
 
-- **Review normally**: small/scoped, ready for the usual review queue.
+- **Fast merge**: small, tested, owned by a clear area, and low product/design risk.
+- **Medium review**: in scope and concrete, but not fast-track; needs a review budget, tests/manual verification, and rollback notes.
 - **Ask for reproduction**: needs steps, logs, benchmark, or proof before review.
+- **Needs design acceptance**: public API, product direction, or architecture needs agreement before implementation review.
+- **Accepted design, needs execution plan**: direction may be accepted, but implementation review still needs slices, owners, tests, and rollback boundaries.
+- **Close quickly**: stale after follow-up, out of scope, insufficient information, or otherwise not actionable.
 - **Waiting on contributor**: a maintainer already asked for something; no new public action yet, just wait until the follow-up window expires.
-- **Move to proposal/design**: public API, product direction, or architecture needs agreement before implementation review.
 - **Has candidate PR**: the issue already has an implementation path; route review through that PR.
 - **Needs re-review**: the author responded after reviewer feedback; ask the previous reviewer or area maintainer to re-test.
 - **Choose PR path**: multiple PRs address the same issue; pick one path before asking for more review.
 - **Use narrow fix first**: a small patch and broader patch compete; prefer the smallest patch that fully resolves the report.
-- **Accepted direction, split first**: the idea is acceptable, but the PR is too large to review safely as one unit.
 - **Find an owner**: plausible work, but no clear accountable owner/reviewer yet.
 - **Useful, no capacity**: aligned work, but maintainers should not imply available review capacity without an owner.
-- **Decline / close**: stale after follow-up, out of scope, insufficient information, or otherwise not actionable.
 - **No action**: already handled, closed, merged, or no mutation needed.
+
+The companion only proposes label mutations for labels that currently exist in the Playground repository. Other stewardship states remain visible as panel state and draft wording rather than invented labels.
 
 ## What the local companion does
 

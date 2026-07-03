@@ -39,9 +39,9 @@ async function waitForPanel(page) {
     const scenarios = [
       ['needs-proof', '/local/scenarios/issues/101'],
       ['needs-design', '/local/scenarios/issues/102'],
-      ['ready-review', '/local/scenarios/pull/103'],
-      ['needs-slicing', '/local/scenarios/pull/104'],
-      ['needs-owner', '/local/scenarios/issues/105'],
+      ['fast-merge', '/local/scenarios/pull/103'],
+      ['needs-execution-plan', '/local/scenarios/pull/104'],
+      ['medium-review', '/local/scenarios/issues/105'],
       ['close-not-actionable', '/local/scenarios/issues/106'],
       ['waiting-author', '/local/scenarios/issues/108'],
       ['no-capacity', '/local/scenarios/issues/109'],

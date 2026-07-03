@@ -36,7 +36,7 @@ async () => {
 
 Expected result: the detail page shows a compact Triage panel with the proposed next action, private rationale directly under the action title, label add/remove chips above the inline editable draft reply, and an action-menu arrow for swapping to a different stewardship action. Submitting mutations still requires `TRIAGE_ALLOW_APPLY=1`.
 
-The list fixture should show compact action pills beside each issue/PR title, for example **Ask proof**, **Review**, **Discuss first**, **Split first**, and **Find owner**.
+The list fixture should show compact action pills beside each issue/PR title, for example **Ask proof**, **Fast merge**, **Medium**, **Proposal**, **Plan first**, and **Close**.
 
 ## Live GitHub test performed
 
@@ -62,9 +62,9 @@ The local scenario fixture covers the stewardship states discussed in the report
 
 - needs proof before review
 - needs design/proposal acceptance
-- fast merge / ready review
-- accepted direction that still needs slicing
-- medium work that needs an owner
+- fast merge
+- medium review with a clear review budget
+- accepted direction that still needs an execution plan
 - waiting after a maintainer already asked for follow-up
 - close quickly after author timeout
 - aligned work with no current maintainer capacity

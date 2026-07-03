@@ -2,7 +2,7 @@
   const API = 'http://127.0.0.1:8765';
   const ALLOWED_REPO = 'WordPress/wordpress-playground';
   const FIXTURE_REPO = 'local/scenarios';
-  const MENU_ACTION_IDS = ['ready-review', 'needs-proof', 'needs-design', 'waiting-author', 'close-not-actionable'];
+  const MENU_ACTION_IDS = ['fast-merge', 'medium-review', 'needs-proof', 'needs-design', 'needs-execution-plan', 'close-not-actionable'];
   const seenRows = new WeakSet();
   const suggestionCache = new Map();
   const dismissedDetailPanels = new Set();
@@ -442,18 +442,19 @@ ${error.message}`;
 
   function actionTitleFor(actionId, fallback) {
     const titles = {
+      'fast-merge': 'Fast merge',
+      'medium-review': 'Medium review',
       'needs-proof': 'Ask for reproduction',
       'waiting-author': 'Waiting on contributor',
-      'needs-design': 'Move to proposal/design',
-      'ready-review': 'Review normally',
+      'needs-design': 'Needs design acceptance',
       'has-candidate-pr': 'Has candidate PR',
       'needs-rereview': 'Needs re-review',
       'competing-prs': 'Choose PR path',
       'narrow-fast-path': 'Use narrow fix first',
-      'needs-slicing': 'Accepted direction, split first',
+      'needs-execution-plan': 'Accepted design, needs execution plan',
       'needs-owner': 'Find an owner',
       'no-capacity': 'Useful, no capacity',
-      'close-not-actionable': 'Decline / close',
+      'close-not-actionable': 'Close quickly',
       'no-action': 'No action',
     };
     return titles[actionId] || fallback || 'Suggested action';
@@ -461,18 +462,19 @@ ${error.message}`;
 
   function actionMenuText(action) {
     const copy = {
+      'fast-merge': ['Fast merge', 'Small, tested, low-risk'],
+      'medium-review': ['Medium review', 'In scope, needs a review budget'],
       'needs-proof': ['Ask for reproduction', 'Need steps, logs, or benchmark'],
       'waiting-author': ['Waiting on contributor', 'Already asked; no public action yet'],
-      'needs-design': ['Move to proposal/design', 'Agree on shape before code review'],
-      'ready-review': ['Review normally', 'Small enough for the regular queue'],
+      'needs-design': ['Needs design acceptance', 'Agree on shape before code review'],
       'has-candidate-pr': ['Has candidate PR', 'Route work through the existing PR'],
       'needs-rereview': ['Needs re-review', 'Author followed up after feedback'],
       'competing-prs': ['Choose PR path', 'Multiple PRs address the same issue'],
       'narrow-fast-path': ['Use narrow fix first', 'Prefer the smallest sufficient patch'],
-      'needs-slicing': ['Split into smaller PRs', 'Direction may be accepted, review size is not'],
+      'needs-execution-plan': ['Execution plan', 'Accepted direction still needs slices'],
       'needs-owner': ['Find an owner', 'Needs someone accountable before review'],
       'no-capacity': ['Useful, no capacity', 'Aligned, but no reviewer capacity now'],
-      'close-not-actionable': ['Decline / close', 'Out of scope, stale, or not actionable'],
+      'close-not-actionable': ['Close quickly', 'Out of scope, stale, or not actionable'],
       'no-action': ['No action', 'Already handled or no mutation needed'],
     };
     const [title, description] = copy[action.id] || [action.title || 'Suggested action', 'Switch to this action'];
@@ -495,18 +497,19 @@ ${error.message}`;
 
   function presentationFor(suggestion) {
     const map = {
+      'fast-merge': ['Fast', 'Fast merge', 'Fast merge'],
+      'medium-review': ['Medium', 'Medium', 'Medium review'],
       'needs-proof': ['Details', 'Ask details', 'Needs details'],
       'waiting-author': ['Waiting', 'Waiting', 'Waiting on contributor'],
       'needs-design': ['Design', 'Proposal', 'Needs design'],
-      'ready-review': ['Review', 'Review', 'Ready for review'],
       'has-candidate-pr': ['Candidate', 'Candidate PR', 'Has candidate PR'],
       'needs-rereview': ['Re-review', 'Re-review', 'Needs re-review'],
       'competing-prs': ['Choose', 'Choose PR', 'Choose PR path'],
       'narrow-fast-path': ['Fast path', 'Fast path', 'Use narrow fix first'],
-      'needs-slicing': ['Split', 'Split first', 'Needs slicing'],
+      'needs-execution-plan': ['Plan', 'Plan first', 'Needs execution plan'],
       'needs-owner': ['Owner', 'Find owner', 'Needs owner'],
       'no-capacity': ['Capacity', 'No capacity', 'Useful, no capacity'],
-      'close-not-actionable': ['Close', 'Close', 'Decline / close'],
+      'close-not-actionable': ['Close', 'Close', 'Close quickly'],
       'no-action': ['Done', 'No action', 'No action'],
     };
     const [short, list, long] = map[suggestion?.actionId] || ['Triage', 'Triage', suggestion?.status || 'Suggested triage'];
@@ -630,7 +633,7 @@ ${error.message}`;
 
   function updateLocalActions(panel) {
     const root = panel.querySelector('[data-role="local-actions"]');
-    if (root) root.hidden = panel.dataset.action !== 'ready-review';
+    if (root) root.hidden = !['fast-merge', 'medium-review'].includes(panel.dataset.action);
   }
 
   function setPanelMinimized(panel, minimized) {

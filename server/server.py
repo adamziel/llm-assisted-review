@@ -396,7 +396,7 @@ def scenario_catalog() -> dict[int, dict]:
             "title": "Crash report with no reproduction",
             "caption": "Needs proof before review",
             "body": "Playground crashes. See developer tools for details.",
-            "labels": ["[Type] Bug", "[Status] Needs Owner"],
+            "labels": ["[Type] Bug"],
             "state": "OPEN",
             "author": {"login": "bug-reporter"},
             "updatedAt": "2026-07-03T08:00:00Z",
@@ -406,7 +406,7 @@ def scenario_catalog() -> dict[int, dict]:
             "title": "Public API proposal for Blueprint schema imports",
             "caption": "Needs design acceptance before implementation",
             "body": "This proposes a new public API and schema contract for importing Blueprint resources across packages.",
-            "labels": ["[Type] Enhancement", "[Status] Needs Proof"],
+            "labels": ["[Type] Enhancement"],
             "state": "OPEN",
             "author": {"login": "api-proposer"},
             "updatedAt": "2026-07-03T08:01:00Z",
@@ -414,9 +414,9 @@ def scenario_catalog() -> dict[int, dict]:
         103: {
             "type": "pr",
             "title": "Docs: correct Blueprint example typo",
-            "caption": "Fast merge / normal review",
+            "caption": "Fast merge",
             "body": "Corrects one copied Blueprint example and updates the adjacent comment. No runtime behavior changes.",
-            "labels": ["[Type] Documentation", "[Status] Needs Design"],
+            "labels": ["[Type] Documentation"],
             "state": "OPEN",
             "author": {"login": "docs-contributor"},
             "updatedAt": "2026-07-03T08:02:00Z",
@@ -424,7 +424,7 @@ def scenario_catalog() -> dict[int, dict]:
             "additions": 12,
             "deletions": 4,
             "changedFiles": 1,
-            "headRefOid": "scenario-ready-review",
+            "headRefOid": "scenario-fast-merge",
             "reviews": [],
         },
         104: {
@@ -432,7 +432,7 @@ def scenario_catalog() -> dict[int, dict]:
             "title": "Accepted proposal: rewrite storage sync implementation",
             "caption": "Accepted direction, but too large for one review",
             "body": "Implements the accepted storage sync proposal in one large branch touching runtime, docs, tests, and browser integration.",
-            "labels": ["[Feature] Storage", "[Status] Needs Proof"],
+            "labels": ["[Feature] Storage"],
             "state": "OPEN",
             "author": {"login": "storage-contributor"},
             "updatedAt": "2026-07-03T08:03:00Z",
@@ -440,15 +440,15 @@ def scenario_catalog() -> dict[int, dict]:
             "additions": 2600,
             "deletions": 725,
             "changedFiles": 38,
-            "headRefOid": "scenario-needs-slicing",
+            "headRefOid": "scenario-needs-execution-plan",
             "reviews": [],
         },
         105: {
             "type": "issue",
-            "title": "Medium-sized enhancement needs a clear owner",
-            "caption": "Plausible work, unclear reviewer/owner",
-            "body": "Support project-specific server headers for advanced local previews. This is useful but needs someone to own the smallest slice through review.",
-            "labels": ["[Type] Enhancement", "[Status] Ready for Review"],
+            "title": "Add project-specific server headers for local previews",
+            "caption": "Medium review with a clear review budget",
+            "body": "Support project-specific server headers for advanced local previews. This is in scope and concrete, but it should stay to one behavior change with tests, manual verification, and rollback notes.",
+            "labels": ["[Type] Enhancement"],
             "state": "OPEN",
             "author": {"login": "preview-builder"},
             "updatedAt": "2026-07-03T08:04:00Z",
@@ -458,7 +458,7 @@ def scenario_catalog() -> dict[int, dict]:
             "title": "Old report still marked needs author's reply",
             "caption": "Close quickly after author timeout",
             "body": "The original report is missing details and has been waiting for the author's reply.",
-            "labels": ["Needs Author's Reply", "[Status] Needs Proof"],
+            "labels": ["Needs Author's Reply", "[Status] Awaits reporter response"],
             "state": "OPEN",
             "author": {"login": "stale-reporter"},
             "updatedAt": "2026-06-10T08:05:00Z",
@@ -468,7 +468,7 @@ def scenario_catalog() -> dict[int, dict]:
             "title": "Recently asked reporter for reproduction details",
             "caption": "Waiting; no public action yet",
             "body": "The maintainer already asked for a Playground URL and browser details. This is waiting on contributor follow-up.",
-            "labels": ["Needs Author's Reply", "[Status] Needs Proof"],
+            "labels": ["Needs Author's Reply", "[Status] Awaits reporter response"],
             "state": "OPEN",
             "author": {"login": "waiting-reporter"},
             "updatedAt": "2026-07-02T08:05:00Z",
@@ -478,7 +478,7 @@ def scenario_catalog() -> dict[int, dict]:
             "title": "Useful import workflow but no reviewer capacity",
             "caption": "Aligned, but no maintainer capacity",
             "body": "This workflow sounds useful and likely aligned, but there is no maintainer capacity or current owner to carry review right now.",
-            "labels": ["[Type] Enhancement", "[Status] Needs Owner"],
+            "labels": ["[Type] Enhancement"],
             "state": "OPEN",
             "author": {"login": "workflow-builder"},
             "updatedAt": "2026-07-03T08:07:00Z",
@@ -704,13 +704,18 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
 
 def pr_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
     rows = []
+    lines = int(source.get("additions") or 0) + int(source.get("deletions") or 0)
+    files = source.get("changedFiles")
+    if lines or files:
+        rows.append({"label": "Change size", "value": f"{lines} changed lines" + (f", {files} files" if files else "")})
+    if source.get("isDraft"):
+        rows.append({"label": "PR state", "value": "draft"})
     review = source.get("reviewState") or {}
     if review.get("latestReviewer"):
         rows.append({"label": "Latest reviewer feedback", "value": event_summary(review["latestReviewer"])})
     if review.get("latestAuthorActivity"):
         rows.append({"label": "Latest author activity", "value": event_summary(review["latestAuthorActivity"])})
-    if review.get("needsRereview"):
-        rows.append({"label": "Suggested action", "value": action_summary(suggestion, [])})
+    rows.append({"label": "Suggested action", "value": action_summary(suggestion, [])})
     return rows
 
 
@@ -730,6 +735,12 @@ def candidate_review_summary(candidates: list[dict]) -> str:
 
 def action_summary(suggestion: dict, candidates: list[dict]) -> str:
     action_id = suggestion.get("actionId")
+    if action_id == "fast-merge":
+        return "Small, low-risk, and ready for the fast review lane."
+    if action_id == "medium-review":
+        return "In scope, but needs a focused review budget and verification path."
+    if action_id == "needs-execution-plan":
+        return "Direction may be accepted, but implementation review needs slices, owners, tests, and rollback boundaries."
     if action_id == "narrow-fast-path" and len(candidates) >= 2:
         return f"Use #{candidates[0]['number']} as the fast path if it fully resolves the report; otherwise evaluate or split broader follow-ups."
     if action_id == "competing-prs":
@@ -754,7 +765,7 @@ def has_reproduction(source: dict) -> bool:
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 2,
+        "triageVersion": 3,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -972,7 +983,14 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
     labels = [label_name(l) for l in source.get("labels", [])]
     text = " ".join([title, body, " ".join(labels)]).lower()
     lines = int(source.get("additions") or 0) + int(source.get("deletions") or 0)
+    files = int(source.get("changedFiles") or 0)
     is_draft = bool(source.get("isDraft"))
+
+    design_terms = ["design", "explore", "exploration", "strategy", "epic", "public api", "schema", "sync", "oauth", "sentry", "storage model", "persistent storage"]
+    accepted_terms = ["accepted", "approved", "proposal accepted", "direction accepted", "agreed direction", "rfc accepted", "accepted proposal"]
+    bug_terms = ["oops", "hiccup", "crash", "fails", "failed", "broken", "error", "bug", "missing dependency", "without declaring"]
+    capacity_terms = ["no capacity", "reviewer capacity", "maintainer capacity", "no current owner", "no clear owner"]
+    wait_terms = ["needs author's reply", "awaits reporter response", "waiting on author", "waiting on contributor", "needs reporter reply"]
 
     def choose(action_id: str, variant_id: str, status: str, justification: str) -> dict:
         return personalize_suggestion(action_from_catalog(action_id, variant_id, status, justification), item_type, source)
@@ -980,6 +998,7 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
     state = (source.get("state") or "").upper()
     if state and state not in {"OPEN"}:
         return choose("no-action", "already-closed", "No action", f"The item is already {state.lower()}, so no triage mutation is needed.")
+
     if item_type == "issue" and source.get("candidatePRs"):
         candidates = source["candidatePRs"]
         smallest = candidates[0]
@@ -989,9 +1008,11 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
         if len(candidates) > 1:
             return choose("competing-prs", "choose-path", "Choose implementation path", "Multiple candidate PRs address the report, so maintainers should choose a path before asking for more review.")
         return choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", f"The issue already has candidate PR #{smallest['number']}; asking the reporter for an owner would add process instead of moving review forward.")
+
     if item_type == "pr" and (source.get("reviewState") or {}).get("needsRereview"):
         return choose("needs-rereview", "author-followed-up", "Needs re-review", "The PR author responded after reviewer feedback, so the next action is re-test/re-review rather than fresh triage.")
-    if any(term in text for term in ["needs author's reply", "waiting on author", "waiting on contributor", "needs reporter reply"]):
+
+    if any(term in text for term in wait_terms):
         days = age_in_days(source.get("updatedAt"))
         if days is not None and days >= 14:
             return choose("close-not-actionable", "stale-waiting", "Close after follow-up timeout", f"We asked for follow-up about {days} days ago; closing now keeps the queue honest while leaving a path back.")
@@ -999,27 +1020,46 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
             return choose("waiting-author", "recently-asked", "Waiting on contributor", "We already asked for follow-up; no public maintainer action is needed yet.")
         remaining = max(0, 14 - days)
         return choose("waiting-author", "recently-asked", "Waiting on contributor", f"We asked for follow-up about {days} days ago; wait roughly {remaining} more day{'s' if remaining != 1 else ''} before considering closure.")
-    if item_type == "pr" and (is_draft or lines > 3000):
-        return choose("needs-slicing", "large-pr", "Split before review", f"This PR is {'draft and ' if is_draft else ''}{lines} changed lines, so full review would create a large maintainer obligation.")
-    if item_type == "pr" and lines <= 250:
-        return choose("ready-review", "small-scoped", "Small scoped PR", "The change is small enough for normal review once CI and tests are checked.")
+
+    has_design_risk = any(word in text for word in design_terms)
+    has_accepted_direction = any(term in text for term in accepted_terms)
+
+    if item_type == "pr" and has_accepted_direction and (is_draft or lines > 250 or files > 3):
+        return choose("needs-execution-plan", "large-accepted-work", "Needs execution plan", "The direction appears accepted, but implementation review still needs slices, owners, tests, and rollback boundaries.")
+
+    if item_type == "pr" and has_design_risk and not has_accepted_direction:
+        variant = "public-api" if any(word in text for word in ["api", "schema", "sync", "oauth", "storage model", "persistent storage"]) else "product-direction"
+        return choose("needs-design", variant, "Needs design first", "This appears to decide product, architecture, or public contract shape before implementation can be reviewed safely.")
+
+    if item_type == "pr" and (lines > 800 or files > 10):
+        return choose("needs-execution-plan", "large-accepted-work", "Needs execution plan", f"The PR changes {lines} lines across {files or 'multiple'} files; implementation review needs a slice plan before maintainers take on that obligation.")
+
+    if item_type == "pr" and lines <= 250 and not is_draft:
+        return choose("fast-merge", "small-tested", "Fast merge", "The change is small enough for the fast lane once CI and the stated verification are checked.")
+
+    if item_type == "pr" and (lines <= 800 or files <= 6):
+        return choose("medium-review", "make-reviewable", "Medium review", "The change is concrete and reviewable, but larger than fast-track; it needs an explicit review budget and verification path.")
+
     if "documentation" in text or "docs" in text:
-        return choose("ready-review", "small-scoped", "Docs review", "Documentation work is usually safe to review directly if accurate and scoped.")
-    if any(word in text for word in ["oops", "hiccup", "crash", "fails", "failed", "broken", "error", "bug", "missing dependency", "without declaring"]):
+        return choose("medium-review", "make-reviewable", "Medium review", "Documentation work is in scope, but this should still be kept to a reviewable slice with clear verification.")
+
+    if any(word in text for word in bug_terms):
         has_detail = len(body.strip()) > 500 or "```" in body or "steps" in text or "reproduce" in text or "summary" in text or "problem" in text
         if not has_detail:
             return choose("needs-proof", "reproduction", "Needs reproduction", "The report looks actionable only after exact reproduction details or logs are available.")
-        return choose("ready-review", "small-scoped", "Reproducible bug candidate", "The report includes enough detail to route to an owner or a narrow test/fix.")
-    design_terms = ["design", "explore", "exploration", "strategy", "epic", "public api", "schema", "sync", "oauth", "sentry", "proposal", "storage model", "persistent storage"]
-    if any(word in text for word in design_terms):
+        return choose("medium-review", "make-reviewable", "Medium review", "The report includes enough detail for a focused fix/test path, but it still needs scoped review and verification.")
+
+    if has_design_risk:
         variant = "public-api" if any(word in text for word in ["api", "schema", "sync", "oauth", "storage model", "persistent storage"]) else "product-direction"
         return choose("needs-design", variant, "Needs design first", "This appears to decide product, architecture, or public contract shape before implementation can be reviewed safely.")
-    if item_type == "pr" and lines > 800:
-        return choose("needs-slicing", "large-pr", "Split before review", f"The PR changes {lines} lines; asking for slices reduces review risk.")
-    if any(term in text for term in ["no capacity", "reviewer capacity", "maintainer capacity", "no current owner", "no clear owner"]):
-        return choose("no-capacity", "no-reviewer-capacity", "Useful, no capacity", "The work appears plausible, but the project should not imply maintainer review capacity without an owner.")
-    return choose("needs-owner", "no-capacity", "Needs owner", "The item may be valid, but the next owner/reviewer is not obvious from the current context.")
 
+    if any(term in text for term in capacity_terms):
+        return choose("no-capacity", "no-reviewer-capacity", "Useful, no capacity", "The work appears plausible, but the project should not imply maintainer review capacity without an owner.")
+
+    if any(term in text for term in ["owner", "sponsor", "maintainer"]):
+        return choose("needs-owner", "no-capacity", "Needs owner", "The item may be valid, but the next owner/reviewer is not obvious from the current context.")
+
+    return choose("medium-review", "make-reviewable", "Medium review", "The item appears concrete enough for the normal stewardship queue, but it needs reviewable scope and verification before maintainers spend review time.")
 
 def action_from_catalog(action_id: str, variant_id: str, status: str, justification: str) -> dict:
     catalog = load_actions()
@@ -1045,6 +1085,7 @@ def action_from_catalog(action_id: str, variant_id: str, status: str, justificat
 def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> dict:
     action_id = suggestion.get("actionId")
     if action_id in {"no-action", "waiting-author"}:
+        filter_known_label_operations(suggestion)
         return suggestion
 
     mention = author_mention(source)
@@ -1074,16 +1115,25 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
             "Please move it to a proposal or Discussion first with the user problem, non-goals, affected APIs, compatibility risks, "
             "alternatives considered, and the smallest first slice that would validate the idea."
         )
-    elif action_id == "ready-review" and item_type == "pr":
-        comment = (
-            f"{prefix}This looks scoped to “{subject}” and reviewable as-is. Next step: maintainer review once CI is green "
-            "and the stated tests or manual verification are confirmed."
-        )
-    elif action_id == "ready-review":
-        comment = (
-            f"{prefix}This report has enough detail to route a focused fix/test for “{subject}”. "
-            "Next step: maintainer review of the reproduction and the smallest safe fix."
-        )
+    elif action_id == "fast-merge":
+        comment = ""
+    elif action_id == "medium-review":
+        if item_type == "pr":
+            size = f"{lines} changed lines" if lines else "a medium-sized change"
+            if files:
+                size += f" across {files} files"
+            draft = "draft and " if is_draft else ""
+            comment = (
+                f"{prefix}This looks in scope for “{subject}”, but it is {draft}{size}, so it is not a fast-track review. "
+                "Please keep it to one behavior change, add tests or manual verification, include screenshots or a Playground link if user-visible, "
+                "and note the rollback path. Then it can go through focused review."
+            )
+        else:
+            comment = (
+                f"{prefix}“{subject}” looks in scope, but it needs a reviewable shape before maintainers spend review time. "
+                "Please narrow it to one behavior change, describe the smallest useful slice, add proof or manual verification steps, "
+                "and include screenshots or a Playground link if user-visible."
+            )
     elif action_id == "has-candidate-pr":
         candidate = (source.get("candidatePRs") or [{}])[0]
         pr_number = candidate.get("number")
@@ -1112,19 +1162,20 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
             f"{prefix}Thanks for the clear reproduction. There are two candidate fixes: {small_text} is the narrow CSS fix, and {broad_text} is a broader layout pass. "
             f"I’d treat {small_text} as the fast path if it fully resolves the overlap. If it still fails, we can evaluate {broad_text} or split its broader layout changes into follow-ups."
         )
-    elif action_id == "needs-slicing":
+    elif action_id == "needs-execution-plan":
         size = f"{lines} changed lines" if lines else "a broad change"
         if files:
             size += f" across {files} files"
         draft = "draft and " if is_draft else ""
         comment = (
-            f"{prefix}The direction in “{subject}” may be useful, but this PR is {draft}{size}, which is too much to review safely in one pass. "
-            "Please split it into a short implementation plan and the smallest first PR with standalone value; we can resume code review from that slice."
+            f"{prefix}The direction in “{subject}” may be accepted or useful, but this PR is {draft}{size}, which is too much to review safely in one pass. "
+            "Please turn it into an implementation plan with the smallest mergeable slice, review owners, compatibility risks, tests, rollback plan, and follow-up sequence. "
+            "We can resume implementation review from the first slice."
         )
     elif action_id == "no-capacity":
         comment = (
             f"{prefix}“{subject}” looks useful and aligned, but we do not currently have maintainer capacity to review or carry it. "
-            "Leaving this marked as needing capacity; the path back is for someone to volunteer as owner, propose the smallest reviewable slice, and stay with it through follow-up."
+            "The path back is for someone to volunteer as owner, propose the smallest reviewable slice, and stay with it through follow-up."
         )
     elif action_id == "needs-owner":
         comment = (
@@ -1143,6 +1194,7 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
                 "If someone can reproduce it in current Playground, please open a fresh issue with the exact URL or Blueprint, steps, expected behavior, actual behavior, and console/error output."
             )
     else:
+        filter_known_label_operations(suggestion)
         return suggestion
 
     suggestion["publicComment"] = comment
@@ -1151,8 +1203,8 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
             op["body"] = comment
     add_candidate_issue_labels(suggestion, source, item_type)
     sync_status_label_operations(suggestion, source)
+    filter_known_label_operations(suggestion)
     return suggestion
-
 
 def add_candidate_issue_labels(suggestion: dict, source: dict, item_type: str) -> None:
     if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path"}:
@@ -1195,6 +1247,16 @@ def sync_status_label_operations(suggestion: dict, source: dict) -> None:
     suggestion["operations"] = operations
 
 
+def filter_known_label_operations(suggestion: dict) -> None:
+    known = set(load_actions().get("labels", {}).get("knownMutationLabels", []))
+    if not known:
+        return
+    suggestion["operations"] = [
+        op for op in suggestion.get("operations", [])
+        if op.get("type") not in {"addLabel", "removeLabel"} or op.get("label") in known
+    ]
+
+
 def age_in_days(value: str | None) -> int | None:
     if not value:
         return None
@@ -1230,6 +1292,7 @@ def normalize_suggestion(suggestion: dict, source: dict) -> dict:
     suggestion.setdefault("operations", [])
     suggestion.setdefault("justification", "No justification provided.")
     suggestion.setdefault("shortTitle", suggestion.get("status") or suggestion.get("actionId") or "Suggested action")
+    filter_known_label_operations(suggestion)
     return suggestion
 
 

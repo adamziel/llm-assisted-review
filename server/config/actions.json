@@ -1,12 +1,47 @@
 {
   "labels": {
-    "statusPrefix": "[Status]"
+    "statusPrefix": "[Status]",
+    "knownMutationLabels": [
+      "[Status] Awaits reporter response",
+      "[Type] Bug",
+      "[Type] Enhancement",
+      "[Aspect] Website",
+      "[Package][@wp-playground] Website"
+    ]
   },
   "actions": [
     {
+      "id": "fast-merge",
+      "title": "Fast merge",
+      "variants": [
+        {
+          "id": "small-tested",
+          "title": "Small tested change",
+          "comment": ""
+        }
+      ],
+      "operations": []
+    },
+    {
+      "id": "medium-review",
+      "title": "Medium review",
+      "variants": [
+        {
+          "id": "make-reviewable",
+          "title": "Needs review budget",
+          "comment": "This looks in scope, but it is not fast-track. Please keep it to one behavior change, add tests or manual verification, include screenshots or a Playground link if user-visible, and note how we would roll it back if needed. Then it can go through focused review."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        }
+      ]
+    },
+    {
       "id": "needs-proof",
       "title": "Ask for proof",
-      "statusLabel": "[Status] Needs Proof",
+      "statusLabel": "[Status] Awaits reporter response",
       "variants": [
         {
           "id": "reproduction",
@@ -25,7 +60,7 @@
         },
         {
           "type": "addLabel",
-          "label": "[Status] Needs Proof"
+          "label": "[Status] Awaits reporter response"
         }
       ]
     },
@@ -43,13 +78,12 @@
     },
     {
       "id": "needs-design",
-      "title": "Move to proposal/design",
-      "statusLabel": "[Status] Needs Design",
+      "title": "Needs design acceptance",
       "variants": [
         {
           "id": "public-api",
           "title": "Public API / contract",
-          "comment": "Thanks \u2014 this touches a public Playground contract, so we should agree on the shape before implementation review. Please move this into a proposal with the user problem, non-goals, affected APIs, compatibility risks, test plan, and smallest first slice."
+          "comment": "Thanks — this touches a public Playground contract, so we should agree on the shape before implementation review. Please move this into a proposal with the user problem, non-goals, affected APIs, compatibility risks, test plan, and smallest first slice."
         },
         {
           "id": "product-direction",
@@ -60,35 +94,28 @@
       "operations": [
         {
           "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] Needs Design"
         }
       ]
     },
     {
-      "id": "ready-review",
-      "title": "Ready for review",
-      "statusLabel": "[Status] Ready for Review",
+      "id": "needs-execution-plan",
+      "title": "Accepted design, needs execution plan",
       "variants": [
         {
-          "id": "small-scoped",
-          "title": "Small scoped change",
-          "comment": "This looks scoped and reviewable. Next step: maintainer review, with tests/manual verification checked before merge."
+          "id": "large-accepted-work",
+          "title": "Large accepted work needs slices",
+          "comment": "The direction may be accepted or useful, but this implementation is too large to review safely as one PR. Please split it into an implementation plan with the smallest mergeable slice, review owners, compatibility risks, tests, rollback plan, and follow-up sequence. We can resume implementation review from the first slice."
         }
       ],
       "operations": [
         {
-          "type": "addLabel",
-          "label": "[Status] Ready for Review"
+          "type": "comment"
         }
       ]
     },
     {
       "id": "has-candidate-pr",
       "title": "Has candidate PR",
-      "statusLabel": "[Status] Has Candidate PR",
       "variants": [
         {
           "id": "issue-has-pr",
@@ -99,17 +126,12 @@
       "operations": [
         {
           "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] Has Candidate PR"
         }
       ]
     },
     {
       "id": "needs-rereview",
       "title": "Needs re-review",
-      "statusLabel": "[Status] Needs Re-review",
       "variants": [
         {
           "id": "author-followed-up",
@@ -120,17 +142,12 @@
       "operations": [
         {
           "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] Needs Re-review"
         }
       ]
     },
     {
       "id": "competing-prs",
       "title": "Choose PR path",
-      "statusLabel": "[Status] Has Candidate PR",
       "variants": [
         {
           "id": "choose-path",
@@ -141,17 +158,12 @@
       "operations": [
         {
           "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] Has Candidate PR"
         }
       ]
     },
     {
       "id": "narrow-fast-path",
       "title": "Use narrow fix first",
-      "statusLabel": "[Status] Has Candidate PR",
       "variants": [
         {
           "id": "small-vs-broad",
@@ -162,80 +174,44 @@
       "operations": [
         {
           "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] Has Candidate PR"
-        }
-      ]
-    },
-    {
-      "id": "needs-slicing",
-      "title": "Accepted direction, split first",
-      "statusLabel": "[Status] Accepted, Needs Slicing",
-      "variants": [
-        {
-          "id": "large-pr",
-          "title": "Large PR needs slices",
-          "comment": "The direction may be useful, but this is too large to review safely as one PR. Please split it into an implementation plan and the smallest first slice with standalone value. We can resume implementation review once the slice plan is clear."
-        }
-      ],
-      "operations": [
-        {
-          "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] Accepted, Needs Slicing"
         }
       ]
     },
     {
       "id": "no-capacity",
       "title": "Useful, no capacity",
-      "statusLabel": "[Status] No Maintainer Capacity",
       "variants": [
         {
           "id": "no-reviewer-capacity",
           "title": "No reviewer capacity",
-          "comment": "This looks useful and aligned, but we do not currently have maintainer capacity to review or carry it. Leaving it marked as needing capacity; the path back is for someone to volunteer as owner, propose the smallest reviewable slice, and stay with it through follow-up."
+          "comment": "This looks useful and aligned, but we do not currently have maintainer capacity to review or carry it. The path back is for someone to volunteer as owner, propose the smallest reviewable slice, and stay with it through follow-up."
         }
       ],
       "operations": [
         {
           "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] No Maintainer Capacity"
         }
       ]
     },
     {
       "id": "needs-owner",
       "title": "Needs owner",
-      "statusLabel": "[Status] Needs Owner",
       "variants": [
         {
           "id": "no-capacity",
           "title": "No reviewer capacity",
-          "comment": "This remains a valid area of work, but we do not currently have a clear owner or reviewer capacity. Leaving this marked as needing an owner; a good next step would be for someone to propose the smallest owned slice and volunteer to maintain it through review."
+          "comment": "This remains a valid area of work, but we do not currently have a clear owner or reviewer capacity. A good next step would be for someone to propose the smallest owned slice and volunteer to maintain it through review."
         }
       ],
       "operations": [
         {
           "type": "comment"
-        },
-        {
-          "type": "addLabel",
-          "label": "[Status] Needs Owner"
         }
       ]
     },
     {
       "id": "close-not-actionable",
-      "title": "Decline / close",
-      "statusLabel": "[Status] Closing Candidate",
+      "title": "Close quickly",
       "variants": [
         {
           "id": "insufficient-info",
@@ -270,7 +246,6 @@
     {
       "id": "no-action",
       "title": "No action",
-      "statusLabel": "[Status] No Action",
       "variants": [
         {
           "id": "already-closed",
