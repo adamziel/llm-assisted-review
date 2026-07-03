@@ -28,6 +28,10 @@ Open a GitHub issue or PR page. A **Triage** panel should appear.
 
 The default UI is intentionally compact: list pages show a subtle next-action marker, and detail pages show the proposed action, a short private rationale, and an inline editable draft reply. The small arrow beside the action title opens a menu for swapping to a different stewardship action.
 
+## Screenshot
+
+![Decline / close triage workflow](docs/assets/triage-copilot-scenario-close-not-actionable.png)
+
 ## Stewardship actions covered
 
 - **Review normally**: small/scoped, ready for the usual review queue.
