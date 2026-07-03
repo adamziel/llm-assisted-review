@@ -4,13 +4,14 @@
   justify-content: center;
   gap: 6px;
   flex: 0 0 auto;
-  height: 26px;
-  margin-left: 8px;
-  padding: 3px 9px;
+  height: 30px;
+  margin-left: 10px;
+  padding: 4px 11px;
   border: 1px solid var(--borderColor-default, #d0d7de);
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--bgColor-default, #fff);
   color: var(--fgColor-default, #24292f);
+  box-shadow: 0 1px 0 rgba(27,31,36,.04);
   font-size: 12px;
   font-weight: 650;
   line-height: 18px;
@@ -20,24 +21,41 @@
   position: relative;
   z-index: 2;
 }
+.codex-triage-list-row {
+  grid-template-columns: 0 32px minmax(0, 1fr) max-content 0 !important;
+}
+.codex-triage-list-metadata {
+  min-width: max-content;
+}
 .codex-triage-list-button-slot {
   display: inline-flex !important;
   flex-direction: row !important;
   align-items: center;
   justify-content: flex-end;
+  width: auto !important;
+  min-width: max-content;
 }
 .codex-triage-list-button-slot .codex-triage-list-button {
-  margin-left: 8px;
+  margin-left: 10px;
 }
 .codex-triage-list-button::before {
   content: "";
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: #6e7781;
 }
+.codex-triage-list-button::after {
+  content: "⌄";
+  position: relative;
+  top: -1px;
+  color: var(--fgColor-muted, #57606a);
+  font-size: 11px;
+  line-height: 1;
+  margin-left: 1px;
+}
 .codex-triage-list-button:hover {
-  border-color: var(--borderColor-emphasis, #6e7781);
+  border-color: var(--borderColor-accent-emphasis, #0969da);
   background: var(--bgColor-muted, #f6f8fa);
 }
 .codex-triage-list-button:focus:not(:focus-visible) { outline: none; }

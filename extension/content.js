@@ -104,9 +104,11 @@ ${error.message}`;
   }
 
   function placeListButton(row, button, link) {
+    row.classList.add('codex-triage-list-row');
     const assignees = row.querySelector('[data-testid="list-row-assignees"]');
     if (assignees) {
       assignees.classList.add('codex-triage-list-button-slot');
+      assignees.parentElement?.classList.add('codex-triage-list-metadata');
       if (button.parentElement !== assignees) assignees.appendChild(button);
       return;
     }
@@ -114,6 +116,7 @@ ${error.message}`;
     const comments = row.querySelector('[data-testid="list-row-comments"]');
     if (comments) {
       comments.classList.add('codex-triage-list-button-slot');
+      comments.parentElement?.classList.add('codex-triage-list-metadata');
       if (button.parentElement !== comments) comments.appendChild(button);
       return;
     }
@@ -121,6 +124,7 @@ ${error.message}`;
     const metadata = row.querySelector('[class*="MetadataContainer"]')
       || row.querySelector('[data-testid="list-row-linked-pull-requests"]')?.parentElement;
     if (metadata) {
+      metadata.classList.add('codex-triage-list-metadata');
       metadata.appendChild(button);
       return;
     }
