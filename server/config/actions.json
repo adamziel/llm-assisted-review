@@ -244,6 +244,25 @@
       ]
     },
     {
+      "id": "duplicate-of",
+      "title": "Duplicate of",
+      "variants": [
+        {
+          "id": "duplicate-issue",
+          "title": "Duplicate issue",
+          "comment": "Closing this as a duplicate of #____, where the same issue is already tracked. Please continue the discussion there so context stays in one place."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "close"
+        }
+      ]
+    },
+    {
       "id": "no-action",
       "title": "No action",
       "variants": [

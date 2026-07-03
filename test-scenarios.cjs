@@ -29,7 +29,7 @@ async function waitForPanel(page) {
   try {
     await page.goto(`${base}/local/scenarios/issues`, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await injectExtension(page);
-    await waitForList(page, 9);
+    await waitForList(page, 10);
     await page.screenshot({ path: path.join(outputs, 'triage-copilot-scenarios-list.png'), fullPage: true });
 
     await page.click('.codex-triage-list-button[data-action="needs-design"]');
@@ -45,6 +45,7 @@ async function waitForPanel(page) {
       ['close-not-actionable', '/local/scenarios/issues/106'],
       ['waiting-author', '/local/scenarios/issues/108'],
       ['no-capacity', '/local/scenarios/issues/109'],
+      ['duplicate-of', '/local/scenarios/issues/110'],
       ['no-action', '/local/scenarios/issues/107'],
     ];
 

@@ -2,7 +2,7 @@
   const API = 'http://127.0.0.1:8765';
   const ALLOWED_REPO = 'WordPress/wordpress-playground';
   const FIXTURE_REPO = 'local/scenarios';
-  const MENU_ACTION_IDS = ['fast-merge', 'medium-review', 'needs-proof', 'needs-design', 'needs-execution-plan', 'close-not-actionable'];
+  const MENU_ACTION_IDS = ['fast-merge', 'medium-review', 'needs-proof', 'needs-design', 'needs-execution-plan', 'close-not-actionable', 'duplicate-of'];
   const seenRows = new WeakSet();
   const suggestionCache = new Map();
   const dismissedDetailPanels = new Set();
@@ -459,6 +459,7 @@ ${error.message}`;
       'needs-owner': 'Find an owner',
       'no-capacity': 'Useful, no capacity',
       'close-not-actionable': 'Close quickly',
+      'duplicate-of': 'Duplicate of',
       'no-action': 'No action',
     };
     return titles[actionId] || fallback || 'Suggested action';
@@ -479,6 +480,7 @@ ${error.message}`;
       'needs-owner': ['Find an owner', 'Needs someone accountable before review'],
       'no-capacity': ['Useful, no capacity', 'Aligned, but no reviewer capacity now'],
       'close-not-actionable': ['Close quickly', 'Out of scope, stale, or not actionable'],
+      'duplicate-of': ['Duplicate of', 'Close pointing to the canonical issue'],
       'no-action': ['No action', 'Already handled or no mutation needed'],
     };
     const [title, description] = copy[action.id] || [action.title || 'Suggested action', 'Switch to this action'];
@@ -514,6 +516,7 @@ ${error.message}`;
       'needs-owner': ['Owner', 'Find owner', 'Needs owner'],
       'no-capacity': ['Capacity', 'No capacity', 'Useful, no capacity'],
       'close-not-actionable': ['Close', 'Close', 'Close quickly'],
+      'duplicate-of': ['Duplicate', 'Duplicate', 'Duplicate of'],
       'no-action': ['Done', 'No action', 'No action'],
     };
     const [short, list, long] = map[suggestion?.actionId] || ['Triage', 'Triage', suggestion?.status || 'Suggested triage'];

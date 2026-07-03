@@ -32,11 +32,11 @@ The default UI is intentionally compact: list pages show a **Triage: [action]** 
 
 Detail panels can be minimized or closed for the current page, and **Reconsider** forces a fresh local recommendation instead of reusing the cached result.
 
-The panel shows the evidence it used, including code size. PRs show changed files and line counts; issues without a patch say that no files or lines changed; issues with candidate PRs show candidate PR sizes, reproduction signal, review state, and the resulting suggested action.
+The panel shows the evidence it used, including code size and possible duplicates. PRs show changed files and line counts; issues without a patch say that no files or lines changed; issues with candidate PRs show candidate PR sizes, reproduction signal, review state, and the resulting suggested action.
 
 For **Fast merge** and **Medium review** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
 
-The action switcher shows the six core stewardship queues. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
+The action switcher shows the six core stewardship queues plus a common **Duplicate of** close mode. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
 
 ## Screenshot
 
@@ -57,6 +57,7 @@ The action switcher shows the six core stewardship queues. More specific paths s
 - **Use narrow fix first**: a small patch and broader patch compete; prefer the smallest patch that fully resolves the report.
 - **Find an owner**: plausible work, but no clear accountable owner/reviewer yet.
 - **Useful, no capacity**: aligned work, but maintainers should not imply available review capacity without an owner.
+- **Duplicate of**: close while pointing to the canonical issue when a likely duplicate is found.
 - **No action**: already handled, closed, merged, or no mutation needed.
 
 The companion only proposes label mutations for labels that currently exist in the Playground repository. Other stewardship states remain visible as panel state and draft wording rather than invented labels.

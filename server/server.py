@@ -483,6 +483,26 @@ def scenario_catalog() -> dict[int, dict]:
             "author": {"login": "workflow-builder"},
             "updatedAt": "2026-07-03T08:07:00Z",
         },
+        110: {
+            "type": "issue",
+            "title": "File browser covers the top navigation on mobile",
+            "caption": "Likely duplicate of an older tracked issue",
+            "body": "The file browser overlaps the top navigation when the viewport is narrow.",
+            "labels": ["[Type] Bug"],
+            "state": "OPEN",
+            "author": {"login": "mobile-reporter"},
+            "updatedAt": "2026-07-03T08:08:00Z",
+            "possibleDuplicates": [
+                {
+                    "number": 3813,
+                    "title": "[website] File browser covering the navigation",
+                    "url": "https://github.com/WordPress/wordpress-playground/issues/3813",
+                    "state": "OPEN",
+                    "updatedAt": "2026-06-24T13:59:06Z",
+                    "overlap": 4,
+                }
+            ],
+        },
         107: {
             "type": "issue",
             "title": "Already closed duplicate",
@@ -525,6 +545,16 @@ def summarize_source(source: dict) -> dict:
             }
             for pr in source.get("candidatePRs", [])
         ],
+        "possibleDuplicates": [
+            {
+                "number": issue.get("number"),
+                "title": issue.get("title"),
+                "url": issue.get("url"),
+                "state": issue.get("state"),
+                "overlap": issue.get("overlap"),
+            }
+            for issue in source.get("possibleDuplicates", [])
+        ],
         "reviewState": source.get("reviewState"),
     }
 
@@ -532,6 +562,7 @@ def summarize_source(source: dict) -> dict:
 def enrich_source(repo: str, item_type: str, source: dict) -> None:
     if item_type == "issue":
         source["candidatePRs"] = candidate_prs_for_issue(repo, source)
+        source["possibleDuplicates"] = possible_duplicates_for_issue(repo, source)
     elif item_type == "pr":
         source["reviewState"] = review_state_for_pr(source)
 
@@ -576,6 +607,47 @@ def search_related_pr_numbers(repo: str, source: dict) -> list[int]:
         return [int(item["number"]) for item in json.loads(raw)]
     except Exception:
         return []
+
+
+def possible_duplicates_for_issue(repo: str, source: dict) -> list[dict]:
+    query = related_issue_query(source.get("title") or "")
+    if not query:
+        return []
+    current_number = int(source.get("number") or 0)
+    found: dict[int, dict] = {}
+    for state in ["open", "closed"]:
+        try:
+            raw = subprocess.check_output(
+                [
+                    "gh", "search", "issues", query,
+                    "--repo", repo,
+                    "--state", state,
+                    "--match", "title",
+                    "--json", "number,title,url,state,createdAt,updatedAt,labels,commentsCount",
+                    "--limit", "8",
+                ],
+                text=True,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            continue
+        for issue in json.loads(raw):
+            number = int(issue.get("number") or 0)
+            if not number or number == current_number:
+                continue
+            overlap = candidate_overlap(source, issue)
+            if overlap < 2:
+                continue
+            issue["overlap"] = overlap
+            found[number] = issue
+    return sorted(found.values(), key=lambda issue: (-int(issue.get("overlap") or 0), str(issue.get("state") or "").upper() != "OPEN", issue.get("number") or 0))[:3]
+
+
+def related_issue_query(title: str) -> str:
+    words = issue_keywords(title)
+    if len(words) < 2:
+        return ""
+    return " ".join(words[:4])
 
 
 def related_pr_query(title: str) -> str:
@@ -686,8 +758,11 @@ def evidence_rows(item_type: str, source: dict, suggestion: dict) -> list[dict]:
 def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
     rows = []
     candidates = source.get("candidatePRs") or []
+    duplicates = source.get("possibleDuplicates") or []
     if not candidates:
         rows.append({"label": "Change size", "value": "issue only; no files or lines changed"})
+        if duplicates:
+            rows.append({"label": "Possible duplicate", "value": duplicate_summary(duplicates)})
         rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
         return rows
     if candidates:
@@ -705,6 +780,15 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
             rows.append({"label": "Review state", "value": review})
         rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
     return rows
+
+
+def duplicate_summary(duplicates: list[dict]) -> str:
+    parts = []
+    for issue in duplicates[:3]:
+        state = str(issue.get("state") or "").lower()
+        suffix = f" {state}" if state else ""
+        parts.append(f"#{issue.get('number')}{suffix} — {issue.get('title')}")
+    return "; ".join(parts)
 
 
 def pr_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
@@ -762,6 +846,8 @@ def action_summary(suggestion: dict, candidates: list[dict]) -> str:
         return "In scope, but needs a focused review budget and verification path."
     if action_id == "needs-execution-plan":
         return "Direction may be accepted, but implementation review needs slices, owners, tests, and rollback boundaries."
+    if action_id == "duplicate-of":
+        return "Close this issue while pointing to the canonical issue."
     if action_id == "narrow-fast-path" and len(candidates) >= 2:
         return f"Use #{candidates[0]['number']} as the fast path if it fully resolves the report; otherwise evaluate or split broader follow-ups."
     if action_id == "competing-prs":
@@ -771,6 +857,25 @@ def action_summary(suggestion: dict, candidates: list[dict]) -> str:
     if action_id == "needs-rereview":
         return "Ask the previous reviewer or area maintainer to re-test the updated PR."
     return suggestion.get("shortTitle") or suggestion.get("status") or "Suggested action"
+
+
+def likely_duplicate_issue(source: dict) -> bool:
+    duplicates = source.get("possibleDuplicates") or []
+    if not duplicates:
+        return False
+    source_title = normalized_issue_title(source.get("title") or "")
+    duplicate = duplicates[0]
+    duplicate_title = normalized_issue_title(duplicate.get("title") or "")
+    if source_title and source_title == duplicate_title:
+        return True
+    keywords = issue_keywords(source.get("title") or "")
+    overlap = int(duplicate.get("overlap") or 0)
+    return bool(keywords) and overlap >= min(4, len(keywords))
+
+
+def normalized_issue_title(title: str) -> str:
+    cleaned = re.sub(r"\[[^\]]+\]", " ", title.lower())
+    return " ".join(re.findall(r"[a-z0-9]+", cleaned))
 
 
 def event_summary(event: dict) -> str:
@@ -786,7 +891,7 @@ def has_reproduction(source: dict) -> bool:
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 3,
+        "triageVersion": 4,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -810,6 +915,16 @@ def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) ->
                 "reviewState": pr.get("reviewState"),
             }
             for pr in source.get("candidatePRs", [])
+        ],
+        "possibleDuplicates": [
+            {
+                "number": issue.get("number"),
+                "title": issue.get("title"),
+                "state": issue.get("state"),
+                "updatedAt": issue.get("updatedAt"),
+                "overlap": issue.get("overlap"),
+            }
+            for issue in source.get("possibleDuplicates", [])
         ],
         "reviewState": source.get("reviewState"),
     }
@@ -1030,6 +1145,10 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
             return choose("competing-prs", "choose-path", "Choose implementation path", "Multiple candidate PRs address the report, so maintainers should choose a path before asking for more review.")
         return choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", f"The issue already has candidate PR #{smallest['number']}; asking the reporter for an owner would add process instead of moving review forward.")
 
+    if item_type == "issue" and likely_duplicate_issue(source):
+        duplicate = source["possibleDuplicates"][0]
+        return choose("duplicate-of", "duplicate-issue", "Duplicate of", f"Possible duplicate #{duplicate['number']} has a very similar title, so close only if that issue is the canonical place to track this.")
+
     if item_type == "pr" and (source.get("reviewState") or {}).get("needsRereview"):
         return choose("needs-rereview", "author-followed-up", "Needs re-review", "The PR author responded after reviewer feedback, so the next action is re-test/re-review rather than fresh triage.")
 
@@ -1213,6 +1332,20 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
             comment = (
                 f"{prefix}Closing this for now because “{subject}” is not actionable with the current information. "
                 "If someone can reproduce it in current Playground, please open a fresh issue with the exact URL or Blueprint, steps, expected behavior, actual behavior, and console/error output."
+            )
+    elif action_id == "duplicate-of":
+        duplicate = (source.get("possibleDuplicates") or [{}])[0]
+        number = duplicate.get("number")
+        duplicate_subject = short_subject(duplicate.get("title") or "the existing issue")
+        if number:
+            comment = (
+                f"{prefix}Closing this as a duplicate of #{number}, where “{duplicate_subject}” is already tracked. "
+                "Please continue the discussion there so context stays in one place."
+            )
+        else:
+            comment = (
+                f"{prefix}Closing this as a duplicate of #____, where the same issue is already tracked. "
+                "Please continue the discussion there so context stays in one place."
             )
     else:
         filter_known_label_operations(suggestion)

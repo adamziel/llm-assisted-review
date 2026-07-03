@@ -36,7 +36,7 @@ async () => {
 
 Expected result: the detail page shows a compact Triage panel with the proposed next action, private rationale directly under the action title, label add/remove chips above the inline editable draft reply, and an action-menu arrow for swapping to a different stewardship action. Submitting mutations still requires `TRIAGE_ALLOW_APPLY=1`.
 
-The list fixture should show compact preview buttons beside each issue/PR title, for example **Triage: Ask details**, **Triage: Fast merge**, **Triage: Medium**, **Triage: Proposal**, **Triage: Plan first**, and **Triage: Close**.
+The list fixture should show compact preview buttons beside each issue/PR title, for example **Triage: Ask details**, **Triage: Fast merge**, **Triage: Medium**, **Triage: Proposal**, **Triage: Plan first**, **Triage: Close**, and **Triage: Duplicate**.
 
 ## Live GitHub test performed
 
@@ -68,6 +68,7 @@ The local scenario fixture covers the stewardship states discussed in the report
 - waiting after a maintainer already asked for follow-up
 - close quickly after author timeout
 - aligned work with no current maintainer capacity
+- likely duplicate issue
 - no action for already-closed work
 
 Run:
