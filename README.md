@@ -32,7 +32,9 @@ The default UI is intentionally compact: list pages show a subtle next-action ma
 
 When the companion finds candidate PRs, the panel shows the evidence it used: reproduction signal, candidate PR numbers, smallest/broader patch size, review state, and the resulting suggested action.
 
-For **Review normally** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, with Terminal.app as the fallback. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
+For **Review normally** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
+
+The action switcher intentionally shows only the simple stewardship queues. More specific paths such as candidate PRs, re-review, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
 
 ## Screenshot
 

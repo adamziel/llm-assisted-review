@@ -2,6 +2,7 @@
   const API = 'http://127.0.0.1:8765';
   const ALLOWED_REPO = 'WordPress/wordpress-playground';
   const FIXTURE_REPO = 'local/scenarios';
+  const MENU_ACTION_IDS = ['ready-review', 'needs-proof', 'needs-design', 'waiting-author', 'close-not-actionable'];
   const seenRows = new WeakSet();
   const suggestionCache = new Map();
   let outsidePopoverListener = null;
@@ -314,7 +315,7 @@ ${error.message}`;
   function renderActionMenu(panel, actions, selectedActionId) {
     const menu = panel.querySelector('[data-role="action-menu"]');
     menu.innerHTML = '';
-    for (const action of actions) {
+    for (const action of menuActions(actions, selectedActionId)) {
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'codex-triage-action-menu__item';
@@ -330,6 +331,15 @@ ${error.message}`;
       });
       menu.appendChild(item);
     }
+  }
+
+  function menuActions(actions, selectedActionId) {
+    const byId = new Map(actions.map((action) => [action.id, action]));
+    const visible = MENU_ACTION_IDS.map((id) => byId.get(id)).filter(Boolean);
+    if (selectedActionId && !MENU_ACTION_IDS.includes(selectedActionId) && byId.has(selectedActionId)) {
+      return [byId.get(selectedActionId), ...visible];
+    }
+    return visible;
   }
 
   function applyActionVariant(panel, action, variant) {

@@ -915,36 +915,40 @@ read -r _
 
 
 def open_codex_reproduction(workdir: Path, script_path: Path) -> dict:
+    desktop_opened = open_codex_desktop(workdir)
+    open_terminal(script_path)
+    if desktop_opened:
+        return {
+            "surface": "Codex Desktop + Terminal Codex session",
+            "desktopOpened": True,
+            "fallback": False,
+            "message": "Opened Codex Desktop with the workspace and started a Terminal Codex session with the reproduction prompt.",
+        }
+    return {
+        "surface": "Terminal Codex session",
+        "desktopOpened": False,
+        "fallback": True,
+        "message": "Opened a Terminal Codex session with the reproduction prompt.",
+    }
+
+
+def open_codex_desktop(workdir: Path) -> bool:
     if codex_desktop_available():
         codex = shutil.which("codex")
         if codex:
             try:
                 result = subprocess.run([codex, "app", str(workdir)], text=True, capture_output=True, timeout=10)
                 if result.returncode == 0:
-                    return {
-                        "surface": "Codex Desktop",
-                        "fallback": False,
-                        "message": "Opened Codex Desktop with a reproduction workspace. Start with prompt.md.",
-                    }
+                    return True
             except Exception:
                 pass
         try:
             result = subprocess.run(["open", "-a", "Codex", str(workdir)], text=True, capture_output=True, timeout=10)
             if result.returncode == 0:
-                return {
-                    "surface": "Codex Desktop",
-                    "fallback": False,
-                    "message": "Opened Codex Desktop with a reproduction workspace. Start with prompt.md.",
-                }
+                return True
         except Exception:
             pass
-
-    open_terminal(script_path)
-    return {
-        "surface": "Terminal Codex session",
-        "fallback": True,
-        "message": "Opened a Terminal Codex session with the reproduction prompt.",
-    }
+    return False
 
 
 def codex_desktop_available() -> bool:
