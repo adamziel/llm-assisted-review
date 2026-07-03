@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shlex
 import shutil
 import sqlite3
@@ -202,6 +203,7 @@ def handle_suggest(payload: dict) -> dict:
         "fingerprint": fingerprint,
         "cached": False,
         "source": summarize_source(source),
+        "evidence": evidence_rows(item_type, source, suggestion),
         "suggestion": suggestion,
         "actions": load_actions()["actions"],
         "applyEnabled": ALLOW_APPLY,
@@ -277,9 +279,9 @@ def fetch_item(repo: str, item_type: str, number: int, page_payload: dict) -> di
     if repo == "local/scenarios":
         return scenario_source(item_type, number, page_payload)
 
-    json_fields = ["number", "title", "body", "labels", "state", "author", "updatedAt", "comments", "url"]
+    json_fields = ["number", "title", "body", "labels", "state", "author", "createdAt", "updatedAt", "comments", "url"]
     if item_type == "pr":
-        json_fields += ["isDraft", "additions", "deletions", "changedFiles", "headRefOid", "reviews"]
+        json_fields += ["isDraft", "additions", "deletions", "changedFiles", "headRefOid", "reviews", "commits"]
         cmd = ["gh", "pr", "view", str(number), "--repo", repo, "--json", ",".join(json_fields)]
     else:
         cmd = ["gh", "issue", "view", str(number), "--repo", repo, "--json", ",".join(json_fields)]
@@ -292,11 +294,13 @@ def fetch_item(repo: str, item_type: str, number: int, page_payload: dict) -> di
             "body": page_payload.get("bodyText") or "",
             "labels": [{"name": label} for label in page_payload.get("labels", [])],
             "state": "OPEN",
+            "createdAt": page_payload.get("createdAt") or "",
             "updatedAt": page_payload.get("updatedAt") or "",
             "comments": [],
             "url": page_payload.get("url") or f"https://github.com/{repo}/{item_type == 'pr' and 'pull' or 'issues'}/{number}",
         }
     item["_page"] = {k: page_payload.get(k) for k in ["title", "labels", "url"] if page_payload.get(k) is not None}
+    enrich_source(repo, item_type, item)
     return item
 
 
@@ -500,15 +504,253 @@ def summarize_source(source: dict) -> dict:
         "state": source.get("state"),
         "author": (source.get("author") or {}).get("login") if isinstance(source.get("author"), dict) else source.get("author"),
         "labels": labels,
+        "createdAt": source.get("createdAt"),
         "updatedAt": source.get("updatedAt"),
         "isDraft": source.get("isDraft"),
         "linesChanged": int(source.get("additions") or 0) + int(source.get("deletions") or 0),
         "changedFiles": source.get("changedFiles"),
+        "candidatePRs": [
+            {
+                "number": pr.get("number"),
+                "title": pr.get("title"),
+                "url": pr.get("url"),
+                "state": pr.get("state"),
+                "linesChanged": pr.get("linesChanged"),
+                "changedFiles": pr.get("changedFiles"),
+                "reviewState": pr.get("reviewState"),
+            }
+            for pr in source.get("candidatePRs", [])
+        ],
+        "reviewState": source.get("reviewState"),
     }
+
+
+def enrich_source(repo: str, item_type: str, source: dict) -> None:
+    if item_type == "issue":
+        source["candidatePRs"] = candidate_prs_for_issue(repo, source)
+    elif item_type == "pr":
+        source["reviewState"] = review_state_for_pr(source)
+
+
+def candidate_prs_for_issue(repo: str, source: dict) -> list[dict]:
+    direct_numbers = extract_pr_numbers(source)
+    candidates: dict[int, dict] = {}
+    for number in direct_numbers:
+        summary = fetch_pr_summary(repo, number)
+        if summary:
+            candidates[number] = summary
+
+    if candidates:
+        for number in search_related_pr_numbers(repo, source):
+            if number not in candidates:
+                summary = fetch_pr_summary(repo, number)
+                if summary and candidate_recent_enough(source, summary) and candidate_overlap(source, summary) >= 2:
+                    candidates[number] = summary
+
+    return sorted(candidates.values(), key=lambda pr: (pr.get("linesChanged") or 0, pr.get("number") or 0))
+
+
+def extract_pr_numbers(source: dict) -> list[int]:
+    text = "\n".join([
+        source.get("body") or "",
+        "\n".join((comment.get("body") or "") for comment in source.get("comments", [])),
+    ])
+    numbers = {int(match) for match in re.findall(r"github\.com/WordPress/wordpress-playground/pull/(\d+)", text, re.I)}
+    return sorted(numbers)
+
+
+def search_related_pr_numbers(repo: str, source: dict) -> list[int]:
+    query = related_pr_query(source.get("title") or "")
+    if not query:
+        return []
+    try:
+        raw = subprocess.check_output(
+            ["gh", "search", "prs", query, "--repo", repo, "--state", "open", "--json", "number", "--limit", "8"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        return [int(item["number"]) for item in json.loads(raw)]
+    except Exception:
+        return []
+
+
+def related_pr_query(title: str) -> str:
+    words = issue_keywords(title)
+    if len(words) < 2:
+        return ""
+    return " ".join(words[:2])
+
+
+def candidate_overlap(source: dict, candidate: dict) -> int:
+    issue_words = set(issue_keywords(source.get("title") or ""))
+    pr_words = set(issue_keywords(candidate.get("title") or ""))
+    return len(issue_words & pr_words)
+
+
+def candidate_recent_enough(source: dict, candidate: dict) -> bool:
+    created = timestamp_value(source.get("createdAt"))
+    updated = timestamp_value(candidate.get("updatedAt"))
+    if not created or not updated:
+        return True
+    return updated >= created - (7 * 24 * 60 * 60)
+
+
+def issue_keywords(text: str) -> list[str]:
+    cleaned = re.sub(r"\[[^\]]+\]", " ", text.lower())
+    words = re.findall(r"[a-z0-9]+", cleaned)
+    stop = {"the", "with", "from", "into", "when", "using", "fixed", "fix", "issue", "bug", "website"}
+    return [word for word in words if len(word) >= 4 and word not in stop]
+
+
+def fetch_pr_summary(repo: str, number: int) -> dict | None:
+    fields = ["number", "title", "url", "state", "author", "createdAt", "updatedAt", "isDraft", "additions", "deletions", "changedFiles", "reviews", "comments", "commits"]
+    try:
+        raw = subprocess.check_output(
+            ["gh", "pr", "view", str(number), "--repo", repo, "--json", ",".join(fields)],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        pr = json.loads(raw)
+    except Exception:
+        return None
+    pr["linesChanged"] = int(pr.get("additions") or 0) + int(pr.get("deletions") or 0)
+    pr["authorLogin"] = (pr.get("author") or {}).get("login") if isinstance(pr.get("author"), dict) else pr.get("author")
+    pr["reviewState"] = review_state_for_pr(pr)
+    return pr
+
+
+def review_state_for_pr(source: dict) -> dict:
+    author = (source.get("author") or {}).get("login") if isinstance(source.get("author"), dict) else source.get("author")
+    latest_feedback = latest_reviewer_feedback(source, author)
+    latest_author = latest_author_activity(source, author)
+    return {
+        "latestReviewer": latest_feedback,
+        "latestAuthorActivity": latest_author,
+        "needsRereview": bool(latest_feedback and latest_author and timestamp_value(latest_author.get("at")) > timestamp_value(latest_feedback.get("at"))),
+    }
+
+
+def latest_reviewer_feedback(source: dict, author: str | None) -> dict | None:
+    events = []
+    for review in source.get("reviews") or []:
+        reviewer = (review.get("author") or {}).get("login") if isinstance(review.get("author"), dict) else None
+        if reviewer and reviewer != author and review.get("state") in {"CHANGES_REQUESTED", "COMMENTED"}:
+            events.append({"kind": review.get("state"), "author": reviewer, "at": review.get("submittedAt"), "body": review.get("body") or ""})
+    for comment in source.get("comments") or []:
+        commenter = (comment.get("author") or {}).get("login") if isinstance(comment.get("author"), dict) else None
+        if commenter and commenter != author:
+            events.append({"kind": "COMMENTED", "author": commenter, "at": comment.get("createdAt"), "body": comment.get("body") or ""})
+    return latest_event(events)
+
+
+def latest_author_activity(source: dict, author: str | None) -> dict | None:
+    events = []
+    for comment in source.get("comments") or []:
+        commenter = (comment.get("author") or {}).get("login") if isinstance(comment.get("author"), dict) else None
+        if commenter and commenter == author:
+            events.append({"kind": "AUTHOR_COMMENT", "author": commenter, "at": comment.get("createdAt"), "body": comment.get("body") or ""})
+    for commit in source.get("commits") or []:
+        at = commit.get("committedDate") or commit.get("authoredDate")
+        events.append({"kind": "COMMIT", "author": author, "at": at, "body": commit.get("messageHeadline") or ""})
+    return latest_event(events)
+
+
+def latest_event(events: list[dict]) -> dict | None:
+    events = [event for event in events if event.get("at")]
+    if not events:
+        return None
+    return max(events, key=lambda event: timestamp_value(event.get("at")))
+
+
+def timestamp_value(value: str | None) -> float:
+    if not value:
+        return 0
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return 0
+
+
+def evidence_rows(item_type: str, source: dict, suggestion: dict) -> list[dict]:
+    if item_type == "issue":
+        return issue_evidence_rows(source, suggestion)
+    if item_type == "pr":
+        return pr_evidence_rows(source, suggestion)
+    return []
+
+
+def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
+    rows = []
+    candidates = source.get("candidatePRs") or []
+    if candidates:
+        rows.append({"label": "Issue has reproduction", "value": "yes" if has_reproduction(source) else "not clear"})
+        linked = ", ".join(f"#{pr['number']}" for pr in candidates)
+        rows.append({"label": "Candidate PRs", "value": linked})
+        smallest = candidates[0]
+        rows.append({"label": "Smallest candidate", "value": f"#{smallest['number']}, {smallest.get('linesChanged', 0)} changed lines"})
+        broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) > (smallest.get("linesChanged") or 0)]
+        if broader:
+            rows.append({"label": "Broader candidate", "value": ", ".join(f"#{pr['number']}, {pr.get('linesChanged', 0)} changed lines" for pr in broader[:2])})
+        review = candidate_review_summary(candidates)
+        if review:
+            rows.append({"label": "Review state", "value": review})
+        rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
+    return rows
+
+
+def pr_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
+    rows = []
+    review = source.get("reviewState") or {}
+    if review.get("latestReviewer"):
+        rows.append({"label": "Latest reviewer feedback", "value": event_summary(review["latestReviewer"])})
+    if review.get("latestAuthorActivity"):
+        rows.append({"label": "Latest author activity", "value": event_summary(review["latestAuthorActivity"])})
+    if review.get("needsRereview"):
+        rows.append({"label": "Suggested action", "value": action_summary(suggestion, [])})
+    return rows
+
+
+def candidate_review_summary(candidates: list[dict]) -> str:
+    parts = []
+    for pr in candidates[:2]:
+        review = pr.get("reviewState") or {}
+        feedback = review.get("latestReviewer")
+        if not feedback or feedback.get("kind") != "CHANGES_REQUESTED":
+            continue
+        if review.get("needsRereview"):
+            parts.append(f"#{pr['number']} has author follow-up after {feedback.get('kind', '').lower().replace('_', ' ')}")
+        else:
+            parts.append(f"#{pr['number']} latest feedback is {feedback.get('kind', '').lower().replace('_', ' ')} from @{feedback.get('author')}")
+    return "; ".join(parts)
+
+
+def action_summary(suggestion: dict, candidates: list[dict]) -> str:
+    action_id = suggestion.get("actionId")
+    if action_id == "narrow-fast-path" and len(candidates) >= 2:
+        return f"Use #{candidates[0]['number']} as the fast path if it fully resolves the report; otherwise evaluate or split broader follow-ups."
+    if action_id == "competing-prs":
+        return "Choose one implementation path before asking for more review."
+    if action_id == "has-candidate-pr":
+        return "Route review through the existing candidate PR instead of asking the reporter for more process."
+    if action_id == "needs-rereview":
+        return "Ask the previous reviewer or area maintainer to re-test the updated PR."
+    return suggestion.get("shortTitle") or suggestion.get("status") or "Suggested action"
+
+
+def event_summary(event: dict) -> str:
+    author = f"@{event.get('author')}" if event.get("author") else "unknown"
+    kind = str(event.get("kind") or "activity").lower().replace("_", " ")
+    return f"{kind} by {author}"
+
+
+def has_reproduction(source: dict) -> bool:
+    text = " ".join([source.get("body") or "", source.get("title") or ""]).lower()
+    return "steps to reproduce" in text or "user-attachments" in text or "<img" in text or "screenshot" in text or "reproduce" in text
 
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
+        "triageVersion": 2,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -524,6 +766,16 @@ def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) ->
         "changedFiles": source.get("changedFiles"),
         "recentComments": tail_comments(source.get("comments", []), 6),
         "recentReviews": tail_reviews(source.get("reviews", []), 6),
+        "candidatePRs": [
+            {
+                "number": pr.get("number"),
+                "title": pr.get("title"),
+                "linesChanged": pr.get("linesChanged"),
+                "reviewState": pr.get("reviewState"),
+            }
+            for pr in source.get("candidatePRs", [])
+        ],
+        "reviewState": source.get("reviewState"),
     }
     blob = json.dumps(relevant, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
@@ -659,6 +911,17 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
     state = (source.get("state") or "").upper()
     if state and state not in {"OPEN"}:
         return choose("no-action", "already-closed", "No action", f"The item is already {state.lower()}, so no triage mutation is needed.")
+    if item_type == "issue" and source.get("candidatePRs"):
+        candidates = source["candidatePRs"]
+        smallest = candidates[0]
+        broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) >= max(80, (smallest.get("linesChanged") or 0) * 4)]
+        if broader:
+            return choose("narrow-fast-path", "small-vs-broad", "Use narrow candidate first", f"The issue has reproduction and candidate PRs; #{smallest['number']} is the smallest path while broader PRs change more surface area.")
+        if len(candidates) > 1:
+            return choose("competing-prs", "choose-path", "Choose implementation path", "Multiple candidate PRs address the report, so maintainers should choose a path before asking for more review.")
+        return choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", f"The issue already has candidate PR #{smallest['number']}; asking the reporter for an owner would add process instead of moving review forward.")
+    if item_type == "pr" and (source.get("reviewState") or {}).get("needsRereview"):
+        return choose("needs-rereview", "author-followed-up", "Needs re-review", "The PR author responded after reviewer feedback, so the next action is re-test/re-review rather than fresh triage.")
     if any(term in text for term in ["needs author's reply", "waiting on author", "waiting on contributor", "needs reporter reply"]):
         days = age_in_days(source.get("updatedAt"))
         if days is not None and days >= 14:
@@ -752,6 +1015,34 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
             f"{prefix}This report has enough detail to route a focused fix/test for “{subject}”. "
             "Next step: maintainer review of the reproduction and the smallest safe fix."
         )
+    elif action_id == "has-candidate-pr":
+        candidate = (source.get("candidatePRs") or [{}])[0]
+        pr_number = candidate.get("number")
+        pr_text = f"#{pr_number}" if pr_number else "the linked PR"
+        comment = (
+            f"{prefix}Thanks for the clear report. This already has a candidate fix in {pr_text}, so the next step is to review and test that PR against the reproduction here."
+        )
+    elif action_id == "needs-rereview":
+        comment = (
+            f"{prefix}Thanks for following up on “{subject}”. The next step is a re-test/re-review from the previous reviewer or area maintainer to confirm whether the latest update resolves the reported issue."
+        )
+    elif action_id == "competing-prs":
+        candidates = source.get("candidatePRs") or []
+        linked = " and ".join(f"#{pr['number']}" for pr in candidates[:2])
+        comment = (
+            f"{prefix}Thanks for the clear reproduction. There are multiple candidate fixes ({linked}), so the next step is to choose one implementation path before asking for more review. "
+            "Let's use the smallest change that fully resolves the reported overlap and split broader layout improvements into follow-ups if needed."
+        )
+    elif action_id == "narrow-fast-path":
+        candidates = source.get("candidatePRs") or []
+        smallest = candidates[0] if candidates else {}
+        broader = candidates[1] if len(candidates) > 1 else {}
+        small_text = f"#{smallest.get('number')}" if smallest.get("number") else "the narrow PR"
+        broad_text = f"#{broader.get('number')}" if broader.get("number") else "the broader PR"
+        comment = (
+            f"{prefix}Thanks for the clear reproduction. There are two candidate fixes: {small_text} is the narrow CSS fix, and {broad_text} is a broader layout pass. "
+            f"I’d treat {small_text} as the fast path if it fully resolves the overlap. If it still fails, we can evaluate {broad_text} or split its broader layout changes into follow-ups."
+        )
     elif action_id == "needs-slicing":
         size = f"{lines} changed lines" if lines else "a broad change"
         if files:
@@ -789,8 +1080,27 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
     for op in suggestion.get("operations", []):
         if op.get("type") == "comment":
             op["body"] = comment
+    add_candidate_issue_labels(suggestion, source, item_type)
     sync_status_label_operations(suggestion, source)
     return suggestion
+
+
+def add_candidate_issue_labels(suggestion: dict, source: dict, item_type: str) -> None:
+    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path"}:
+        return
+    existing = [label_name(label) for label in source.get("labels", [])]
+    text = " ".join([source.get("title") or "", source.get("body") or "", " ".join(existing)]).lower()
+    operations = suggestion.setdefault("operations", [])
+
+    if "[Type] Enhancement" in existing and any(term in text for term in ["covering", "broken", "bug", "fails", "error", "regression"]):
+        operations.append({"type": "removeLabel", "label": "[Type] Enhancement"})
+    if any(term in text for term in ["covering", "broken", "bug", "fails", "error", "regression"]) and "[Type] Bug" not in existing:
+        operations.append({"type": "addLabel", "label": "[Type] Bug"})
+    if "website" in text:
+        if "[Aspect] Website" not in existing:
+            operations.append({"type": "addLabel", "label": "[Aspect] Website"})
+        if "[Package][@wp-playground] Website" not in existing:
+            operations.append({"type": "addLabel", "label": "[Package][@wp-playground] Website"})
 
 
 def sync_status_label_operations(suggestion: dict, source: dict) -> None:
@@ -799,7 +1109,10 @@ def sync_status_label_operations(suggestion: dict, source: dict) -> None:
     action = next((a for a in catalog["actions"] if a["id"] == suggestion.get("actionId")), None)
     desired = action.get("statusLabel") if action else None
     existing = [label_name(label) for label in source.get("labels", [])]
-    operations = [op for op in suggestion.get("operations", []) if op.get("type") not in {"addLabel", "removeLabel"}]
+    operations = [
+        op for op in suggestion.get("operations", [])
+        if op.get("type") not in {"addLabel", "removeLabel"} or not str(op.get("label", "")).startswith(prefix)
+    ]
 
     if desired:
         for label in existing:

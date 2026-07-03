@@ -200,6 +200,7 @@ ${error.message}`;
               <div class="codex-triage-action-menu" data-role="action-menu" hidden></div>
             </div>
             <div class="codex-triage-why" data-role="justification">Asking local companion.</div>
+            <div class="codex-triage-evidence" data-role="evidence" hidden></div>
           </div>
         </div>
 
@@ -265,6 +266,7 @@ ${error.message}`;
     const field = panel.querySelector('[data-role="field"]');
     const actionButton = panel.querySelector('[data-role="action-menu-button"]');
     const menu = panel.querySelector('[data-role="action-menu"]');
+    const evidence = panel.querySelector('[data-role="evidence"]');
     panel.dataset.action = 'unavailable';
     panel.dataset.applyEnabled = '0';
     if (title) title.textContent = 'Start local companion';
@@ -274,6 +276,7 @@ ${error.message}`;
     if (field) field.hidden = true;
     if (actionButton) actionButton.hidden = true;
     if (menu) menu.hidden = true;
+    if (evidence) evidence.hidden = true;
     setStatus(panel, error?.message ? `Connection detail: ${error.message}` : 'Companion is not reachable.');
   }
 
@@ -288,11 +291,24 @@ ${error.message}`;
     panel.dataset.action = suggestion.actionId || '';
     panel.querySelector('[data-role="summary-title"]').textContent = actionTitleFor(suggestion.actionId, suggestion.shortTitle || presentation.long);
     panel.querySelector('[data-role="justification"]').textContent = suggestion.justification || 'No private rationale provided.';
+    renderEvidence(panel, result.evidence || []);
     setCommentValue(panel, suggestion.publicComment || '');
     renderOperations(panel, suggestion.operations || []);
     renderActionMenu(panel, actions, suggestion.actionId);
     updateLocalActions(panel);
     updateInsertButton(panel);
+  }
+
+  function renderEvidence(panel, rows) {
+    const root = panel.querySelector('[data-role="evidence"]');
+    root.hidden = !rows.length;
+    root.innerHTML = '';
+    for (const row of rows) {
+      const item = document.createElement('div');
+      item.className = 'codex-triage-evidence__row';
+      item.innerHTML = `<span>${escapeHtml(row.label)}</span><strong>${escapeHtml(row.value)}</strong>`;
+      root.appendChild(item);
+    }
   }
 
   function renderActionMenu(panel, actions, selectedActionId) {
@@ -393,6 +409,10 @@ ${error.message}`;
       'waiting-author': 'Waiting on contributor',
       'needs-design': 'Move to proposal/design',
       'ready-review': 'Review normally',
+      'has-candidate-pr': 'Has candidate PR',
+      'needs-rereview': 'Needs re-review',
+      'competing-prs': 'Choose PR path',
+      'narrow-fast-path': 'Use narrow fix first',
       'needs-slicing': 'Accepted direction, split first',
       'needs-owner': 'Find an owner',
       'no-capacity': 'Useful, no capacity',
@@ -408,6 +428,10 @@ ${error.message}`;
       'waiting-author': ['Waiting on contributor', 'Already asked; no public action yet'],
       'needs-design': ['Move to proposal/design', 'Agree on shape before code review'],
       'ready-review': ['Review normally', 'Small enough for the regular queue'],
+      'has-candidate-pr': ['Has candidate PR', 'Route work through the existing PR'],
+      'needs-rereview': ['Needs re-review', 'Author followed up after feedback'],
+      'competing-prs': ['Choose PR path', 'Multiple PRs address the same issue'],
+      'narrow-fast-path': ['Use narrow fix first', 'Prefer the smallest sufficient patch'],
       'needs-slicing': ['Split into smaller PRs', 'Direction may be accepted, review size is not'],
       'needs-owner': ['Find an owner', 'Needs someone accountable before review'],
       'no-capacity': ['Useful, no capacity', 'Aligned, but no reviewer capacity now'],
@@ -438,6 +462,10 @@ ${error.message}`;
       'waiting-author': ['Waiting', 'Waiting', 'Waiting on contributor'],
       'needs-design': ['Design', 'Proposal', 'Needs design'],
       'ready-review': ['Review', 'Review', 'Ready for review'],
+      'has-candidate-pr': ['Candidate', 'Candidate PR', 'Has candidate PR'],
+      'needs-rereview': ['Re-review', 'Re-review', 'Needs re-review'],
+      'competing-prs': ['Choose', 'Choose PR', 'Choose PR path'],
+      'narrow-fast-path': ['Fast path', 'Fast path', 'Use narrow fix first'],
       'needs-slicing': ['Split', 'Split first', 'Needs slicing'],
       'needs-owner': ['Owner', 'Find owner', 'Needs owner'],
       'no-capacity': ['Capacity', 'No capacity', 'Useful, no capacity'],

@@ -86,6 +86,90 @@
       ]
     },
     {
+      "id": "has-candidate-pr",
+      "title": "Has candidate PR",
+      "statusLabel": "[Status] Has Candidate PR",
+      "variants": [
+        {
+          "id": "issue-has-pr",
+          "title": "Issue has implementation",
+          "comment": "Thanks for the clear report. This already has a candidate PR, so the next step is to review and test that PR against the reproduction here."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Has Candidate PR"
+        }
+      ]
+    },
+    {
+      "id": "needs-rereview",
+      "title": "Needs re-review",
+      "statusLabel": "[Status] Needs Re-review",
+      "variants": [
+        {
+          "id": "author-followed-up",
+          "title": "Author responded to feedback",
+          "comment": "Thanks for following up. The next step is a re-test/re-review from the previous reviewer or area maintainer to confirm whether the latest update resolves the reported issue."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Needs Re-review"
+        }
+      ]
+    },
+    {
+      "id": "competing-prs",
+      "title": "Choose PR path",
+      "statusLabel": "[Status] Has Candidate PR",
+      "variants": [
+        {
+          "id": "choose-path",
+          "title": "Multiple candidate PRs",
+          "comment": "There are multiple candidate fixes. The next step is to choose one implementation path before asking for more review, then close or split the alternatives."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Has Candidate PR"
+        }
+      ]
+    },
+    {
+      "id": "narrow-fast-path",
+      "title": "Use narrow fix first",
+      "statusLabel": "[Status] Has Candidate PR",
+      "variants": [
+        {
+          "id": "small-vs-broad",
+          "title": "Small patch vs broader PR",
+          "comment": "There is a small candidate fix and a broader candidate. Prefer the smallest patch that fully solves the reported problem, and split broader layout work into follow-ups if needed."
+        }
+      ],
+      "operations": [
+        {
+          "type": "comment"
+        },
+        {
+          "type": "addLabel",
+          "label": "[Status] Has Candidate PR"
+        }
+      ]
+    },
+    {
       "id": "needs-slicing",
       "title": "Accepted direction, split first",
       "statusLabel": "[Status] Accepted, Needs Slicing",
