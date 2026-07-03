@@ -30,6 +30,8 @@ Open a `WordPress/wordpress-playground` issue or PR page. A **Triage** panel sho
 
 The default UI is intentionally compact: list pages show a subtle next-action marker, and detail pages show the proposed action, a short private rationale, and an inline editable draft reply. The small arrow beside the action title opens a menu for swapping to a different stewardship action.
 
+For **Review normally** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open macOS Terminal.app with a Codex session scoped to reproducing/verifying that issue or PR. The prompt tells Codex not to mutate GitHub.
+
 ## Screenshot
 
 ![Decline / close triage workflow](docs/assets/triage-copilot-scenario-close-not-actionable.png)
@@ -55,6 +57,7 @@ The Chrome extension cannot run local tools by itself. The companion is a small 
 - stores suggestion results in `server/triage.sqlite3` so refreshes do not recompute unchanged items;
 - returns the suggested action, private rationale, draft public comment, and proposed operations;
 - optionally invokes `codex exec` when `TRIAGE_PROVIDER=codex` is set;
+- opens a local Codex reproduction session from **Ask Codex to reproduce**;
 - optionally applies operations through `gh` only when `TRIAGE_ALLOW_APPLY=1` is set.
 
 By default it uses the deterministic heuristic provider and does not need Codex or any API key.

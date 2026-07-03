@@ -273,6 +273,24 @@
   flex-wrap: wrap;
   gap: 5px;
 }
+.codex-triage-local-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+.codex-triage-local-actions button {
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 7px;
+  background: var(--bgColor-default, #fff);
+  color: var(--fgColor-default, #24292f);
+  padding: 6px 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.codex-triage-local-actions button:hover {
+  border-color: var(--borderColor-accent-emphasis, #0969da);
+  background: var(--bgColor-muted, #f6f8fa);
+}
+.codex-triage-local-actions button:disabled { opacity: .55; cursor: not-allowed; }
 .codex-triage-operation-chip {
   display: inline-flex;
   align-items: center;

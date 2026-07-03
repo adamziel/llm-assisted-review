@@ -4,8 +4,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shlex
+import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import time
 from datetime import datetime, timezone
@@ -93,6 +96,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(handle_suggest(payload))
             elif route == "/api/apply":
                 self._json(handle_apply(payload))
+            elif route == "/api/reproduce":
+                self._json(handle_reproduce(payload))
             else:
                 self._json({"error": "not_found"}, status=404)
         except Exception as exc:
@@ -245,6 +250,27 @@ def handle_apply(payload: dict) -> dict:
             (repo, item_type, number, payload.get("fingerprint"), json.dumps(payload, ensure_ascii=False), json.dumps(result, ensure_ascii=False), int(time.time())),
         )
     return result
+
+
+def handle_reproduce(payload: dict) -> dict:
+    repo = ensure_supported_repo(require(payload, "repo"))
+    item_type = normalize_type(require(payload, "type"))
+    number = int(require(payload, "number"))
+    source = fetch_item(repo, item_type, number, payload)
+    workdir = Path(tempfile.mkdtemp(prefix=f"playground-repro-{number}-"))
+    prompt_path = workdir / "prompt.md"
+    script_path = workdir / "run-codex-repro.command"
+    prompt_path.write_text(reproduction_prompt(repo, item_type, number, source), encoding="utf-8")
+    script_path.write_text(reproduction_script(workdir, prompt_path, repo, item_type, number), encoding="utf-8")
+    script_path.chmod(0o755)
+    open_terminal(script_path)
+    return {
+        "ok": True,
+        "message": f"Opened a local Codex reproduction session for {repo}#{number}.",
+        "workdir": str(workdir),
+        "promptPath": str(prompt_path),
+        "scriptPath": str(script_path),
+    }
 
 
 def fetch_item(repo: str, item_type: str, number: int, page_payload: dict) -> dict:
@@ -572,6 +598,51 @@ def compact_for_prompt(source: dict) -> dict:
     data["recentComments"] = tail_comments(source.get("comments", []), 5)
     data["recentReviews"] = tail_reviews(source.get("reviews", []), 5)
     return data
+
+
+def reproduction_prompt(repo: str, item_type: str, number: int, source: dict) -> str:
+    kind = "pull request" if item_type == "pr" else "issue"
+    return f"""You are helping a WordPress Playground maintainer reproduce GitHub {kind} {repo}#{number}.
+
+Goal:
+- Determine whether the reported behavior or proposed change is reproducible/verifiable from the available public information.
+- Work only locally in this temporary directory.
+- Do not post GitHub comments, add/remove labels, close issues, push branches, or open pull requests.
+- If you need source code, clone {repo} into this directory or use the local gh CLI to inspect the {kind}.
+- Keep the session focused on reproduction/verification. Do not drift into a full implementation unless a tiny test-only proof is necessary.
+
+When finished, report:
+1. Reproduced / not reproduced / inconclusive.
+2. Exact commands and environment used.
+3. Observed output or error.
+4. What maintainer action this evidence supports next.
+
+GitHub context:
+{json.dumps(compact_for_prompt(source), ensure_ascii=False, indent=2)}
+"""
+
+
+def reproduction_script(workdir: Path, prompt_path: Path, repo: str, item_type: str, number: int) -> str:
+    codex = shutil.which("codex") or "codex"
+    kind = "PR" if item_type == "pr" else "issue"
+    return f"""#!/bin/zsh
+set -e
+cd {shlex.quote(str(workdir))}
+echo "Starting Codex reproduction session for {repo} {kind} #{number}"
+echo "Working directory: {workdir}"
+echo
+{shlex.quote(codex)} --cd {shlex.quote(str(workdir))} --sandbox workspace-write --ask-for-approval on-request --no-alt-screen "$(cat {shlex.quote(str(prompt_path))})"
+echo
+echo "Codex session ended. Files remain in: {workdir}"
+echo "Press Return to close this terminal."
+read -r _
+"""
+
+
+def open_terminal(script_path: Path) -> None:
+    if sys.platform != "darwin":
+        raise RuntimeError("Opening a local terminal is currently implemented for macOS Terminal.app.")
+    subprocess.Popen(["open", "-a", "Terminal", str(script_path)])
 
 
 def heuristic_suggestion(item_type: str, source: dict) -> dict:

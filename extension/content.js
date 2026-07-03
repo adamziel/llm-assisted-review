@@ -4,6 +4,7 @@
   const FIXTURE_REPO = 'local/scenarios';
   const seenRows = new WeakSet();
   const suggestionCache = new Map();
+  let outsidePopoverListener = null;
 
   function boot() {
     decoratePage();
@@ -165,6 +166,7 @@ ${error.message}`;
     panel.classList.add('codex-triage-popover');
     panel.dataset.surface = 'popover';
     document.body.appendChild(panel);
+    enableOutsidePopoverClose();
     positionFloatingPanel(panel, anchor);
     refreshPanel(panel, item).then(() => positionFloatingPanel(panel, anchor));
   }
@@ -207,6 +209,9 @@ ${error.message}`;
             <span class="codex-triage-label-chips" data-role="label-chips"></span>
           </div>
           <div class="codex-triage-ops" data-role="operations" hidden></div>
+          <div class="codex-triage-local-actions" data-role="local-actions" hidden>
+            <button type="button" data-role="reproduce">Ask Codex to reproduce</button>
+          </div>
           <div class="codex-triage-draft-section" data-role="draft-section">
             <label class="codex-triage-field-label codex-triage-draft-label" for="${uid}-comment">Draft reply</label>
             <div class="codex-triage-draft-box">
@@ -236,6 +241,7 @@ ${error.message}`;
       if (panel.dataset.applyEnabled === '1') applySelected(panel, item);
       else insertComment(panel);
     });
+    panel.querySelector('[data-role="reproduce"]').addEventListener('click', () => askCodexToReproduce(panel, item));
     return panel;
   }
 
@@ -285,6 +291,7 @@ ${error.message}`;
     setCommentValue(panel, suggestion.publicComment || '');
     renderOperations(panel, suggestion.operations || []);
     renderActionMenu(panel, actions, suggestion.actionId);
+    updateLocalActions(panel);
     updateInsertButton(panel);
   }
 
@@ -318,6 +325,7 @@ ${error.message}`;
     panel.dataset.action = action.id || '';
     panel.querySelector('[data-role="justification"]').textContent = `Manually switched to ${presentation.long.toLowerCase()}.`;
     renderOperations(panel, ops);
+    updateLocalActions(panel);
     updateInsertButton(panel);
     const actions = JSON.parse(panel.dataset.actions || '[]');
     renderActionMenu(panel, actions, action.id);
@@ -481,6 +489,20 @@ ${error.message}`;
     console.log('[GitHub Triage Copilot] apply result', body);
   }
 
+  async function askCodexToReproduce(panel, item) {
+    const button = panel.querySelector('[data-role="reproduce"]');
+    button.disabled = true;
+    setStatus(panel, 'Opening a local Codex terminal…');
+    try {
+      const result = await apiRequest('/api/reproduce', { ...item, url: location.href });
+      setStatus(panel, result.message || 'Opened a local Codex reproduction session.');
+    } catch (error) {
+      setStatus(panel, `Could not open Codex: ${error.message}`);
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   function insertComment(panel) {
     const value = commentValue(panel);
     const textarea = findCommentTextarea();
@@ -515,10 +537,30 @@ ${error.message}`;
     const field = panel.querySelector('[data-role="field"]');
     const draftSection = panel.querySelector('[data-role="draft-section"]');
     const button = panel.querySelector('[data-role="apply"]');
-    if (field) field.hidden = !hasComment && !hasOperations;
+    const hasLocalActions = !panel.querySelector('[data-role="local-actions"]')?.hidden;
+    if (field) field.hidden = !hasComment && !hasOperations && !hasLocalActions;
     if (draftSection) draftSection.hidden = !hasComment;
     button.hidden = !hasComment && !hasOperations;
     button.disabled = !hasComment && !hasOperations;
+  }
+
+  function updateLocalActions(panel) {
+    const root = panel.querySelector('[data-role="local-actions"]');
+    if (root) root.hidden = panel.dataset.action !== 'ready-review';
+  }
+
+  function enableOutsidePopoverClose() {
+    if (outsidePopoverListener) return;
+    outsidePopoverListener = (event) => {
+      const target = event.target;
+      if (target.closest?.('.codex-triage-popover') || target.closest?.('.codex-triage-list-button')) return;
+      document.querySelectorAll('.codex-triage-popover').forEach((el) => el.remove());
+      if (!document.querySelector('.codex-triage-popover')) {
+        document.removeEventListener('pointerdown', outsidePopoverListener, true);
+        outsidePopoverListener = null;
+      }
+    };
+    document.addEventListener('pointerdown', outsidePopoverListener, true);
   }
 
   function setStatus(panel, text) {
