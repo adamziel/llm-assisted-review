@@ -342,12 +342,26 @@ ${error.message}`;
     for (const row of rows) {
       const item = document.createElement('div');
       item.className = 'codex-triage-evidence__row';
-      const value = row.href
-        ? `<a href="${escapeHtml(row.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.value)}</a>`
-        : `<strong>${escapeHtml(row.value)}</strong>`;
+      let value;
+      if (Array.isArray(row.links) && row.links.length) {
+        value = `<div class="codex-triage-evidence-links">${row.links.map(evidenceLinkHtml).join('')}</div>`;
+      } else {
+        value = row.href
+          ? `<a href="${escapeHtml(row.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.value)}</a>`
+          : `<strong>${escapeHtml(row.value)}</strong>`;
+      }
       item.innerHTML = `<span>${escapeHtml(row.label)}</span>${value}`;
       root.appendChild(item);
     }
+  }
+
+  function evidenceLinkHtml(link) {
+    const meta = link.meta ? `<small>${escapeHtml(link.meta)}</small>` : '';
+    const title = link.title || link.meta || link.label || '';
+    if (link.href) {
+      return `<a class="codex-triage-evidence-link" href="${escapeHtml(link.href)}" target="_blank" rel="noreferrer" title="${escapeHtml(title)}"><b>${escapeHtml(link.label || link.href)}</b>${meta}</a>`;
+    }
+    return `<span class="codex-triage-evidence-link"><b>${escapeHtml(link.label || '')}</b>${meta}</span>`;
   }
 
   function renderActionLinks(panel, links) {

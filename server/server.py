@@ -795,13 +795,13 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
     if candidates:
         smallest = candidates[0]
         rows.append({"label": "Reproduction", "value": reproduction or "not clear"})
-        rows.append({"label": "Review target", "value": candidate_pr_text(smallest), "href": smallest.get("url")})
+        rows.append({"label": "Review target", "links": [candidate_pr_link(smallest)]})
         broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) > (smallest.get("linesChanged") or 0)]
         if broader:
-            rows.append({"label": "Other candidates", "value": ", ".join(f"#{pr['number']}, {change_size_text(pr)}" for pr in broader[:2])})
-        review = candidate_review_summary(candidates)
-        if review:
-            rows.append({"label": "Review state", "value": review})
+            rows.append({"label": "Other candidates", "links": [candidate_pr_link(pr) for pr in broader[:2]]})
+        review_links = candidate_review_links(candidates)
+        if review_links:
+            rows.append({"label": "Review state", "links": review_links})
     return rows
 
 
@@ -811,12 +811,17 @@ def action_links(item_type: str, source: dict, suggestion: dict) -> list[dict]:
     links = []
     for pr in (source.get("candidatePRs") or [])[:3]:
         if pr.get("url"):
-            links.append({
-                "label": f"Review PR #{pr.get('number')}",
-                "href": pr.get("url"),
-                "meta": candidate_pr_text(pr, include_number=False),
-            })
+            links.append(candidate_pr_link(pr, label=f"Review PR #{pr.get('number')}"))
     return links
+
+
+def candidate_pr_link(pr: dict, label: str | None = None, meta: str | None = None) -> dict:
+    return {
+        "label": label or f"#{pr.get('number')}",
+        "href": pr.get("url"),
+        "meta": meta or candidate_pr_text(pr, include_number=False),
+        "title": pr.get("title") or "",
+    }
 
 
 def candidate_pr_text(pr: dict, include_number: bool = True) -> str:
@@ -858,18 +863,20 @@ def change_size_text(source: dict) -> str:
     return line_text
 
 
-def candidate_review_summary(candidates: list[dict]) -> str:
-    parts = []
+def candidate_review_links(candidates: list[dict]) -> list[dict]:
+    links = []
     for pr in candidates[:2]:
         review = pr.get("reviewState") or {}
         feedback = review.get("latestReviewer")
         if not feedback or feedback.get("kind") != "CHANGES_REQUESTED":
             continue
+        kind = feedback.get("kind", "").lower().replace("_", " ")
         if review.get("needsRereview"):
-            parts.append(f"#{pr['number']} has author follow-up after {feedback.get('kind', '').lower().replace('_', ' ')}")
+            meta = f"author follow-up after {kind}"
         else:
-            parts.append(f"#{pr['number']} latest feedback is {feedback.get('kind', '').lower().replace('_', ' ')} from @{feedback.get('author')}")
-    return "; ".join(parts)
+            meta = f"latest feedback is {kind} from @{feedback.get('author')}"
+        links.append(candidate_pr_link(pr, meta=meta))
+    return links
 
 
 def action_summary(suggestion: dict, candidates: list[dict]) -> str:
@@ -994,7 +1001,7 @@ def discussion_text(source: dict) -> str:
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 7,
+        "triageVersion": 8,
         "repo": repo,
         "type": item_type,
         "number": number,

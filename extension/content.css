@@ -197,6 +197,28 @@
 .codex-triage-evidence__row a:hover {
   text-decoration: underline;
 }
+.codex-triage-evidence-links {
+  display: grid;
+  gap: 5px;
+}
+.codex-triage-evidence-link {
+  display: grid;
+  gap: 1px;
+  color: var(--fgColor-default, #24292f);
+  text-decoration: none;
+}
+.codex-triage-evidence-link b {
+  color: var(--fgColor-accent, #0969da);
+  font-weight: 700;
+}
+.codex-triage-evidence-link small {
+  color: var(--fgColor-muted, #57606a);
+  font-size: 11px;
+  line-height: 1.3;
+}
+.codex-triage-evidence-link:hover b {
+  text-decoration: underline;
+}
 .codex-triage-links {
   display: grid;
   gap: 8px;
