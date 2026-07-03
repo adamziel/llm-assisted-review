@@ -163,7 +163,7 @@ ${error.message}`;
   function positionFloatingPanel(panel, anchor) {
     if (!anchor) return;
     const rect = anchor.getBoundingClientRect();
-    const width = Math.min(430, window.innerWidth - 36);
+    const width = Math.min(560, window.innerWidth - 36);
     const measuredHeight = Math.min(panel.offsetHeight || 360, window.innerHeight - 36);
     const left = Math.max(18, Math.min(window.innerWidth - width - 18, rect.right - width));
     const top = Math.max(18, Math.min(window.innerHeight - measuredHeight - 18, rect.bottom + 8));
@@ -194,7 +194,7 @@ ${error.message}`;
 
         <div class="codex-triage-field" data-role="field">
           <div class="codex-triage-label-row" data-role="label-row" hidden>
-            <span class="codex-triage-field-label">Labels</span>
+            <span class="codex-triage-field-label">Will do</span>
             <span class="codex-triage-label-chips" data-role="label-chips"></span>
           </div>
           <div class="codex-triage-ops" data-role="operations" hidden></div>
@@ -344,34 +344,28 @@ ${error.message}`;
   function renderOperations(panel, operations) {
     const root = panel.querySelector('[data-role="operations"]');
     root.dataset.operations = JSON.stringify(operations || []);
-    renderLabelChips(panel, operations || []);
-    renderActionChips(root, operations || []);
+    renderWorkChips(panel, operations || []);
   }
 
-  function renderActionChips(root, operations) {
-    const visibleOps = operations.filter((op) => !['comment', 'addLabel', 'removeLabel'].includes(op.type));
-    root.hidden = !visibleOps.length;
-    root.innerHTML = '';
-    for (const op of visibleOps) {
-      const chip = document.createElement('span');
-      chip.className = 'codex-triage-operation-chip';
-      chip.dataset.op = op.type;
-      chip.textContent = operationText(op);
-      root.appendChild(chip);
-    }
-  }
-
-  function renderLabelChips(panel, operations) {
+  function renderWorkChips(panel, operations) {
     const row = panel.querySelector('[data-role="label-row"]');
     const chips = panel.querySelector('[data-role="label-chips"]');
-    const labelOps = operations.filter((op) => op.type === 'addLabel' || op.type === 'removeLabel');
-    row.hidden = !labelOps.length;
+    const visibleOps = operations
+      .filter((op) => op.type !== 'comment')
+      .sort((a, b) => operationSort(a) - operationSort(b));
+    row.hidden = !visibleOps.length;
     chips.innerHTML = '';
-    for (const op of labelOps) {
+    for (const op of visibleOps) {
       const chip = document.createElement('span');
-      chip.className = 'codex-triage-label-chip';
-      chip.dataset.op = op.type === 'addLabel' ? 'add' : 'remove';
-      chip.textContent = `${op.type === 'addLabel' ? '+' : '−'} ${op.label}`;
+      if (op.type === 'addLabel' || op.type === 'removeLabel') {
+        chip.className = 'codex-triage-label-chip';
+        chip.dataset.op = op.type === 'addLabel' ? 'add' : 'remove';
+        chip.textContent = `${op.type === 'addLabel' ? '+' : '−'} ${op.label}`;
+      } else {
+        chip.className = 'codex-triage-operation-chip';
+        chip.dataset.op = op.type;
+        chip.textContent = operationText(op);
+      }
       chips.appendChild(chip);
     }
   }
@@ -393,7 +387,7 @@ ${error.message}`;
 
   function actionMenuText(action) {
     const copy = {
-      'needs-proof': ['Ask for reproduction', 'Need steps, logs, benchmark, or proof'],
+      'needs-proof': ['Ask for reproduction', 'Need steps, logs, or benchmark'],
       'waiting-author': ['Waiting on contributor', 'Already asked; no public action yet'],
       'needs-design': ['Move to proposal/design', 'Agree on shape before code review'],
       'ready-review': ['Review normally', 'Small enough for the regular queue'],
@@ -407,6 +401,12 @@ ${error.message}`;
     return { title, description };
   }
 
+  function operationSort(op) {
+    if (op.type === 'removeLabel') return 0;
+    if (op.type === 'addLabel') return 1;
+    return 2;
+  }
+
   function operationText(op) {
     if (op.type === 'comment') return 'Post edited comment';
     if (op.type === 'addLabel') return `Add label: ${op.label}`;
@@ -417,9 +417,9 @@ ${error.message}`;
 
   function presentationFor(suggestion) {
     const map = {
-      'needs-proof': ['Proof', 'Ask proof', 'Needs proof'],
+      'needs-proof': ['Details', 'Ask details', 'Needs details'],
       'waiting-author': ['Waiting', 'Waiting', 'Waiting on contributor'],
-      'needs-design': ['Design', 'Discuss first', 'Needs design'],
+      'needs-design': ['Design', 'Proposal', 'Needs design'],
       'ready-review': ['Review', 'Review', 'Ready for review'],
       'needs-slicing': ['Split', 'Split first', 'Needs slicing'],
       'needs-owner': ['Owner', 'Find owner', 'Needs owner'],
