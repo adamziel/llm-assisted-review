@@ -26,9 +26,9 @@ Then load the unpacked extension from:
 extension/
 ```
 
-Open a `WordPress/wordpress-playground` issue or PR page. A **Triage** panel should appear.
+Open a `WordPress/wordpress-playground` issue or PR page. A compact **Next action** control should appear.
 
-The default UI is intentionally compact: list pages show a **Triage: [action]** preview button, and detail pages show the proposed action, a short private rationale, and an inline editable draft reply. The action title itself opens a menu for swapping to a different stewardship action.
+The default UI is intentionally compact: list pages show a **Next action: [what to do]** preview button, and detail pages lead with the reviewer action to take now, a short private rationale, and an inline editable draft reply when a public reply is useful. The action title itself opens a menu for swapping to a different stewardship action.
 
 Detail panels can be minimized or closed for the current page, and **Reconsider** forces a fresh local recommendation instead of reusing the cached result.
 
@@ -36,7 +36,7 @@ The panel shows the evidence it used, including code size and possible duplicate
 
 For **Fast merge** and **Medium review** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
 
-The action switcher shows the six core stewardship queues plus a common **Duplicate of** close mode. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
+The action switcher uses operator-oriented labels such as **None needed**, **Wait for response**, **Review the PR**, **Review narrow PR**, **Ask for details**, and **Close as duplicate** instead of queue names alone. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
 
 ## Screenshot
 

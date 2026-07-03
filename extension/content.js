@@ -82,8 +82,8 @@
       button.type = 'button';
       button.className = 'codex-triage-list-button';
       button.dataset.state = 'loading';
-      button.textContent = 'Triage…';
-      button.title = 'Load local triage suggestion';
+      button.textContent = 'Next action…';
+      button.title = 'Load local next-action suggestion';
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -96,9 +96,9 @@
         button.dataset.state = 'ready';
         button.dataset.action = result.suggestion.actionId || '';
         row.classList.toggle('codex-triage-list-row-muted', isQuietSuggestion(result.suggestion));
-        button.innerHTML = `<span class="codex-triage-list-prefix">Triage:</span><span class="codex-triage-list-action">${escapeHtml(p.list)}</span>`;
-        button.setAttribute('aria-label', `Open triage preview: ${p.long}. ${result.suggestion.justification || ''}`);
-        button.title = `Open triage preview: ${p.long}
+        button.innerHTML = `<span class="codex-triage-list-prefix">Next action: </span><span class="codex-triage-list-action">${escapeHtml(p.list)}</span>`;
+        button.setAttribute('aria-label', `Open next-action preview: ${p.long}. ${result.suggestion.justification || ''}`);
+        button.title = `Open next-action preview: ${p.long}
 ${result.suggestion.justification || ''}
 
 No GitHub action happens until you review and submit.`;
@@ -219,6 +219,7 @@ ${error.message}`;
           <div class="codex-triage-title-wrap">
             <div class="codex-triage-title-line">
               <button type="button" data-role="action-menu-button" class="codex-triage-action-button" aria-label="Change suggested action" aria-expanded="false">
+                <span class="codex-triage-action-prefix">Next action:</span>
                 <span class="codex-triage-summary-title" data-role="summary-title">Checking current thread…</span>
                 <span class="codex-triage-action-chevron" aria-hidden="true"></span>
               </button>
@@ -326,7 +327,7 @@ ${error.message}`;
     panel.dataset.existingLabels = JSON.stringify(result.source?.labels || []);
     panel.dataset.applyEnabled = result.applyEnabled ? '1' : '0';
     panel.dataset.action = suggestion.actionId || '';
-    panel.querySelector('[data-role="summary-title"]').textContent = actionTitleFor(suggestion.actionId, suggestion.status || suggestion.shortTitle || presentation.long);
+    panel.querySelector('[data-role="summary-title"]').textContent = presentation.long;
     panel.querySelector('[data-role="justification"]').textContent = suggestion.justification || 'No private rationale provided.';
     renderEvidence(panel, result.evidence || []);
     renderActionLinks(panel, result.links || []);
@@ -418,9 +419,9 @@ ${error.message}`;
   function applyActionVariant(panel, action, variant) {
     if (!action || !variant) return;
     const ops = operationsForAction(panel, action, variant);
-    const presentation = presentationFor({ actionId: action.id });
+    const presentation = presentationFor({ actionId: action.id, variantId: variant?.id, status: action.title });
     setCommentValue(panel, variant.comment || '');
-    panel.querySelector('[data-role="summary-title"]').textContent = actionTitleFor(action.id, action.title || 'Custom action');
+    panel.querySelector('[data-role="summary-title"]').textContent = presentation.long;
     panel.dataset.action = action.id || '';
     panel.querySelector('[data-role="justification"]').textContent = `Manually switched to ${presentation.long.toLowerCase()}.`;
     renderOperations(panel, ops);
@@ -486,44 +487,23 @@ ${error.message}`;
     }
   }
 
-  function actionTitleFor(actionId, fallback) {
-    const titles = {
-      'fast-merge': 'Fast merge',
-      'medium-review': 'Medium review',
-      'needs-proof': 'Ask for reproduction',
-      'waiting-author': 'Waiting on contributor',
-      'needs-design': 'Needs design acceptance',
-      'has-candidate-pr': 'Has candidate PR',
-      'needs-rereview': 'Ready for re-review',
-      'competing-prs': 'Choose PR path',
-      'narrow-fast-path': 'Use narrow fix first',
-      'needs-execution-plan': 'Accepted design, needs execution plan',
-      'needs-owner': 'Find an owner',
-      'no-capacity': 'Useful, no capacity',
-      'close-not-actionable': 'Close quickly',
-      'duplicate-of': 'Duplicate of',
-      'no-action': fallback || 'No action',
-    };
-    return titles[actionId] || fallback || 'Suggested action';
-  }
-
   function actionMenuText(action) {
     const copy = {
-      'fast-merge': ['Fast merge', 'Small, tested, low-risk'],
-      'medium-review': ['Medium review', 'In scope, needs a review budget'],
-      'needs-proof': ['Ask for reproduction', 'Need steps, logs, or benchmark'],
-      'waiting-author': ['Waiting on contributor', 'Already asked; no public action yet'],
-      'needs-design': ['Needs design acceptance', 'Agree on shape before code review'],
-      'has-candidate-pr': ['Has candidate PR', 'Route work through the existing PR'],
-      'needs-rereview': ['Ready for re-review', 'Author followed up after feedback'],
+      'fast-merge': ['Fast-review PR', 'Small, tested, low-risk'],
+      'medium-review': ['Review with budget', 'In scope, but not fast-track'],
+      'needs-proof': ['Ask for details', 'Need steps, logs, or benchmark'],
+      'waiting-author': ['Wait for response', 'Already asked; no public action yet'],
+      'needs-design': ['Move to proposal', 'Agree on shape before code review'],
+      'has-candidate-pr': ['Review the PR', 'Route work through the existing PR'],
+      'needs-rereview': ['Re-review PR', 'Author followed up after feedback'],
       'competing-prs': ['Choose PR path', 'Multiple PRs address the same issue'],
-      'narrow-fast-path': ['Use narrow fix first', 'Prefer the smallest sufficient patch'],
-      'needs-execution-plan': ['Execution plan', 'Accepted direction still needs slices'],
-      'needs-owner': ['Find an owner', 'Needs someone accountable before review'],
-      'no-capacity': ['Useful, no capacity', 'Aligned, but no reviewer capacity now'],
-      'close-not-actionable': ['Close quickly', 'Out of scope, stale, or not actionable'],
-      'duplicate-of': ['Duplicate of', 'Close pointing to the canonical issue'],
-      'no-action': ['No action', 'Already handled or no mutation needed'],
+      'narrow-fast-path': ['Review narrow PR', 'Prefer the smallest sufficient patch'],
+      'needs-execution-plan': ['Ask for plan', 'Accepted direction still needs slices'],
+      'needs-owner': ['Find owner', 'Needs someone accountable before review'],
+      'no-capacity': ['Defer—no capacity', 'Aligned, but no reviewer capacity now'],
+      'close-not-actionable': ['Close issue', 'Out of scope, stale, or not actionable'],
+      'duplicate-of': ['Close as duplicate', 'Point to the canonical issue'],
+      'no-action': ['None needed', 'Already handled or no mutation needed'],
     };
     const [title, description] = copy[action.id] || [action.title || 'Suggested action', 'Switch to this action'];
     return { title, description };
@@ -546,27 +526,42 @@ ${error.message}`;
   }
 
   function presentationFor(suggestion) {
-    if (suggestion?.actionId === 'no-action' && suggestion.status && suggestion.status !== 'No action') {
-      return { short: 'Done', list: suggestion.status, long: suggestion.status };
+    const copy = nextActionCopy(suggestion);
+    return { short: copy.short, list: copy.list, long: copy.long };
+  }
+
+  function nextActionCopy(suggestion) {
+    const actionId = suggestion?.actionId;
+    const variantId = suggestion?.variantId;
+    if (actionId === 'no-action') {
+      return { short: 'None', list: 'None needed', long: 'None needed' };
+    }
+    if (actionId === 'waiting-author') {
+      if (variantId === 'draft-pr') return { short: 'Wait', list: 'Wait for ready', long: 'Wait for author to mark ready' };
+      if (variantId === 'changes-requested') return { short: 'Wait', list: 'Wait for changes', long: 'Wait for author changes' };
+      return { short: 'Wait', list: 'Wait for response', long: 'Wait for contributor response' };
+    }
+    if (actionId === 'close-not-actionable') {
+      if (variantId === 'out-of-scope') return { short: 'Close', list: 'Close—out of scope', long: 'Close issue—out of scope' };
+      if (variantId === 'stale-waiting') return { short: 'Close', list: 'Close stale issue', long: 'Close stale issue' };
+      if (variantId === 'research-note') return { short: 'Close', list: 'Close research note', long: 'Close research note' };
+      return { short: 'Close', list: 'Close—can’t act', long: 'Close issue—can’t act yet' };
     }
     const map = {
-      'fast-merge': ['Fast', 'Fast merge', 'Fast merge'],
-      'medium-review': ['Medium', 'Medium', 'Medium review'],
-      'needs-proof': ['Details', 'Ask details', 'Needs details'],
-      'waiting-author': ['Waiting', 'Waiting', 'Waiting on contributor'],
-      'needs-design': ['Design', 'Proposal', 'Needs design'],
-      'has-candidate-pr': ['Candidate', 'Candidate PR', 'Has candidate PR'],
-      'needs-rereview': ['Re-review', 'Re-review', 'Ready for re-review'],
-      'competing-prs': ['Choose', 'Choose PR', 'Choose PR path'],
-      'narrow-fast-path': ['Fast path', 'Fast path', 'Use narrow fix first'],
-      'needs-execution-plan': ['Plan', 'Plan first', 'Needs execution plan'],
-      'needs-owner': ['Owner', 'Needs owner', 'Needs owner'],
-      'no-capacity': ['Capacity', 'No capacity', 'Useful, no capacity'],
-      'close-not-actionable': ['Close', 'Close', 'Close quickly'],
-      'duplicate-of': ['Duplicate', 'Duplicate', 'Duplicate of'],
-      'no-action': ['Done', 'No action', 'No action'],
+      'fast-merge': ['Review', 'Fast-review PR', 'Fast-review PR'],
+      'medium-review': ['Review', 'Review with budget', 'Review with explicit budget'],
+      'needs-proof': ['Ask', 'Ask for details', 'Ask for reproduction details'],
+      'needs-design': ['Proposal', 'Move to proposal', 'Move to proposal/design'],
+      'has-candidate-pr': ['Review', 'Review the PR', 'Review the candidate PR'],
+      'needs-rereview': ['Review', 'Re-review PR', 'Re-review PR'],
+      'competing-prs': ['Choose', 'Choose PR path', 'Choose PR path'],
+      'narrow-fast-path': ['Review', 'Review narrow PR', 'Review narrow PR first'],
+      'needs-execution-plan': ['Plan', 'Ask for plan', 'Ask for execution plan'],
+      'needs-owner': ['Owner', 'Find owner', 'Find an owner'],
+      'no-capacity': ['Defer', 'Defer—no capacity', 'Defer—no maintainer capacity'],
+      'duplicate-of': ['Close', 'Close as duplicate', 'Close as duplicate'],
     };
-    const [short, list, long] = map[suggestion?.actionId] || ['Triage', 'Triage', suggestion?.status || 'Suggested triage'];
+    const [short, list, long] = map[actionId] || ['Action', suggestion?.status || 'Decide next step', suggestion?.status || 'Decide next step'];
     return { short, list, long };
   }
 

@@ -164,8 +164,17 @@
   font-weight: 700;
   line-height: 1.25;
 }
+.codex-triage-action-prefix {
+  flex: 0 0 auto;
+  padding: 6px 0 6px 11px;
+  color: var(--fgColor-muted, #57606a);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: nowrap;
+}
 .codex-triage-action-button .codex-triage-summary-title {
-  padding: 6px 6px 6px 11px;
+  padding: 6px 6px 6px 5px;
 }
 .codex-triage-why {
   margin-top: 4px;

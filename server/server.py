@@ -790,7 +790,6 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
             rows.append({"label": "Issue has reproduction", "value": reproduction})
         if duplicates:
             rows.append({"label": "Possible duplicate", "value": duplicate_summary(duplicates)})
-        rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
         return rows
     if candidates:
         smallest = candidates[0]
@@ -877,29 +876,6 @@ def candidate_review_links(candidates: list[dict]) -> list[dict]:
             meta = f"latest feedback is {kind} from @{feedback.get('author')}"
         links.append(candidate_pr_link(pr, meta=meta))
     return links
-
-
-def action_summary(suggestion: dict, candidates: list[dict]) -> str:
-    action_id = suggestion.get("actionId")
-    if action_id == "fast-merge":
-        return "Small, low-risk, and ready for the fast review lane."
-    if action_id == "medium-review":
-        return "In scope, but needs a focused review budget and verification path."
-    if action_id == "needs-execution-plan":
-        return "Direction may be accepted, but implementation review needs slices, owners, tests, and rollback boundaries."
-    if action_id == "duplicate-of":
-        return "Close this issue while pointing to the canonical issue."
-    if action_id == "narrow-fast-path" and len(candidates) >= 2:
-        return f"Use #{candidates[0]['number']} as the fast path if it fully resolves the report; otherwise evaluate or split broader follow-ups."
-    if action_id == "competing-prs":
-        return "Choose one implementation path before asking for more review."
-    if action_id == "has-candidate-pr":
-        return "Route review through the existing candidate PR instead of asking the reporter for more process."
-    if action_id == "needs-rereview":
-        return "Ask the previous reviewer or area maintainer to re-test the updated PR."
-    if action_id == "needs-owner":
-        return "No patch is attached; someone needs to own reproduction and the smallest fix/test path."
-    return suggestion.get("shortTitle") or suggestion.get("status") or "Suggested action"
 
 
 def likely_duplicate_issue(source: dict) -> bool:
