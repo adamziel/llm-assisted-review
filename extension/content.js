@@ -5,6 +5,8 @@
   const MENU_ACTION_IDS = ['ready-review', 'needs-proof', 'needs-design', 'waiting-author', 'close-not-actionable'];
   const seenRows = new WeakSet();
   const suggestionCache = new Map();
+  const dismissedDetailPanels = new Set();
+  const minimizedDetailPanels = new Set();
   let outsidePopoverListener = null;
 
   function boot() {
@@ -23,11 +25,16 @@
 
   function decoratePage() {
     const route = parseRoute(location.href);
-    if (!route) return;
+    if (!route) {
+      document.querySelector('#codex-triage-detail-panel')?.remove();
+      document.querySelectorAll('.codex-triage-popover').forEach((el) => el.remove());
+      return;
+    }
     if (route.number) {
       renderDetailPanel(route);
       return;
     }
+    document.querySelector('#codex-triage-detail-panel')?.remove();
     decorateList(route);
   }
 
@@ -143,12 +150,18 @@ ${error.message}`;
   }
 
   function renderDetailPanel(route) {
-    if (document.querySelector('#codex-triage-detail-panel')) return;
+    const routeKey = itemKey(route);
+    const existing = document.querySelector('#codex-triage-detail-panel');
+    if (existing?.dataset.routeKey === routeKey) return;
+    if (existing) existing.remove();
+    if (isDetailPanelDismissed(route)) return;
     const mount = detailPanelMount();
     if (!mount) return;
     const panel = buildPanel(route, { detail: true });
     panel.id = 'codex-triage-detail-panel';
     panel.dataset.surface = 'detail';
+    panel.dataset.routeKey = routeKey;
+    setPanelMinimized(panel, isDetailPanelMinimized(route));
     mount.insertAdjacentElement('afterend', panel);
     refreshPanel(panel, route);
   }
@@ -166,6 +179,7 @@ ${error.message}`;
     const panel = buildPanel(item, { detail: false });
     panel.classList.add('codex-triage-popover');
     panel.dataset.surface = 'popover';
+    panel.dataset.routeKey = itemKey(item);
     document.body.appendChild(panel);
     enableOutsidePopoverClose();
     positionFloatingPanel(panel, anchor);
@@ -191,7 +205,11 @@ ${error.message}`;
     const panel = document.createElement('section');
     panel.className = 'codex-triage-panel';
     panel.innerHTML = `
-      <button type="button" data-role="close" class="codex-triage-icon-button" title="Close panel">×</button>
+      <div class="codex-triage-panel-controls">
+        <button type="button" data-role="reconsider" class="codex-triage-control-button codex-triage-reconsider-button" title="Get a fresh recommendation">Reconsider</button>
+        <button type="button" data-role="minimize" class="codex-triage-control-button" title="Minimize panel" aria-label="Minimize panel" aria-expanded="true">−</button>
+        <button type="button" data-role="close" class="codex-triage-control-button" title="Close panel" aria-label="Close panel">×</button>
+      </div>
       <div class="codex-triage-panel__body">
         <div class="codex-triage-summary">
           <div class="codex-triage-title-wrap">
@@ -229,7 +247,16 @@ ${error.message}`;
       </div>
     `;
 
-    panel.querySelector('[data-role="close"]').addEventListener('click', () => panel.remove());
+    panel.querySelector('[data-role="close"]').addEventListener('click', () => {
+      if (panel.dataset.surface === 'detail') dismissDetailPanel(item);
+      panel.remove();
+    });
+    panel.querySelector('[data-role="minimize"]').addEventListener('click', () => {
+      const minimized = panel.dataset.minimized !== 'true';
+      setPanelMinimized(panel, minimized);
+      if (panel.dataset.surface === 'detail') saveDetailPanelMinimized(item, minimized);
+    });
+    panel.querySelector('[data-role="reconsider"]').addEventListener('click', () => reconsiderSuggestion(panel, item));
     const actionButton = panel.querySelector('[data-role="action-menu-button"]');
     const actionMenu = panel.querySelector('[data-role="action-menu"]');
     actionButton.addEventListener('click', (event) => {
@@ -504,11 +531,15 @@ ${error.message}`;
   }
 
   async function loadSuggestion(item, options = {}) {
-    const key = `${item.repo}:${item.type}:${item.number}:${options.force ? 'force' : 'cache'}`;
+    const key = itemKey(item);
     if (!options.force && suggestionCache.has(key)) return suggestionCache.get(key);
     const result = await apiRequest('/api/suggest', { ...item, force: !!options.force, url: location.href });
     suggestionCache.set(key, result);
     return result;
+  }
+
+  function invalidateSuggestion(item) {
+    suggestionCache.delete(itemKey(item));
   }
 
   function selectedOperations(panel) {
@@ -525,6 +556,21 @@ ${error.message}`;
     const body = await apiRequest('/api/apply', { ...item, fingerprint: result.fingerprint, comment, operations });
     setStatus(panel, body.ok ? 'Submitted selected operations.' : (body.message || 'Submit returned errors. See console.'));
     console.log('[GitHub Triage Copilot] apply result', body);
+  }
+
+  async function reconsiderSuggestion(panel, item) {
+    const button = panel.querySelector('[data-role="reconsider"]');
+    button.disabled = true;
+    invalidateSuggestion(item);
+    setStatus(panel, 'Reconsidering…');
+    try {
+      await refreshPanel(panel, item, { force: true });
+      setStatus(panel, 'Reconsidered from current GitHub state.');
+    } catch (error) {
+      setStatus(panel, `Could not reconsider: ${error.message}`);
+    } finally {
+      button.disabled = false;
+    }
   }
 
   async function askCodexToReproduce(panel, item) {
@@ -587,6 +633,34 @@ ${error.message}`;
     if (root) root.hidden = panel.dataset.action !== 'ready-review';
   }
 
+  function setPanelMinimized(panel, minimized) {
+    panel.dataset.minimized = minimized ? 'true' : 'false';
+    const button = panel.querySelector('[data-role="minimize"]');
+    if (!button) return;
+    button.textContent = minimized ? '+' : '−';
+    button.title = minimized ? 'Expand panel' : 'Minimize panel';
+    button.setAttribute('aria-label', minimized ? 'Expand panel' : 'Minimize panel');
+    button.setAttribute('aria-expanded', String(!minimized));
+  }
+
+  function dismissDetailPanel(item) {
+    dismissedDetailPanels.add(itemKey(item));
+  }
+
+  function isDetailPanelDismissed(item) {
+    return dismissedDetailPanels.has(itemKey(item));
+  }
+
+  function saveDetailPanelMinimized(item, minimized) {
+    const key = itemKey(item);
+    if (minimized) minimizedDetailPanels.add(key);
+    else minimizedDetailPanels.delete(key);
+  }
+
+  function isDetailPanelMinimized(item) {
+    return minimizedDetailPanels.has(itemKey(item));
+  }
+
   function enableOutsidePopoverClose() {
     if (outsidePopoverListener) return;
     outsidePopoverListener = (event) => {
@@ -607,6 +681,7 @@ ${error.message}`;
   }
 
   function cleanup(text) { return text.replace(/\s+/g, ' ').trim(); }
+  function itemKey(item) { return `${item.repo}:${item.type}:${item.number}`; }
   function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\'': '&#39;', '"': '&quot;' }[char]));
   }

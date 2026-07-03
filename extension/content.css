@@ -77,8 +77,7 @@
 .codex-triage-list-button[data-action="no-action"]::before { background: #6e7781; }
 
 .codex-triage-panel {
-  position: sticky;
-  top: 12px;
+  position: relative;
   z-index: 50;
   max-width: 760px;
   margin: 10px 0 14px;
@@ -89,21 +88,47 @@
   color: var(--fgColor-default, #24292f);
   overflow: visible;
 }
-.codex-triage-icon-button {
+.codex-triage-panel-controls {
   position: absolute;
-  top: 7px;
+  top: 8px;
   right: 8px;
-  border: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 2;
+}
+.codex-triage-control-button {
+  min-width: 24px;
+  height: 24px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
   color: var(--fgColor-muted, #57606a);
   cursor: pointer;
-  font-size: 18px;
+  font-size: 16px;
+  font-weight: 700;
   line-height: 1;
-  padding: 1px 5px;
+  padding: 1px 6px;
 }
+.codex-triage-control-button:hover {
+  border-color: var(--borderColor-muted, #d8dee4);
+  background: var(--bgColor-muted, #f6f8fa);
+}
+.codex-triage-control-button:disabled { opacity: .55; cursor: not-allowed; }
+.codex-triage-reconsider-button {
+  width: auto;
+  font-size: 12px;
+  font-weight: 650;
+}
+.codex-triage-panel[data-surface="popover"] [data-role="minimize"] { display: none; }
+.codex-triage-panel[data-minimized="true"] .codex-triage-panel__body > :not(.codex-triage-summary) { display: none; }
+.codex-triage-panel[data-minimized="true"] .codex-triage-why,
+.codex-triage-panel[data-minimized="true"] .codex-triage-evidence { display: none; }
+.codex-triage-panel[data-minimized="true"] .codex-triage-panel__body { padding-right: 118px; }
 .codex-triage-panel__body { padding: 14px 38px 14px 14px; display: grid; gap: 12px; }
 .codex-triage-summary {
   display: block;
+  padding-right: 128px;
 }
 .codex-triage-title-wrap { min-width: 0; }
 .codex-triage-title-line {

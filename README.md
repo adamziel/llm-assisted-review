@@ -30,6 +30,8 @@ Open a `WordPress/wordpress-playground` issue or PR page. A **Triage** panel sho
 
 The default UI is intentionally compact: list pages show a subtle next-action marker, and detail pages show the proposed action, a short private rationale, and an inline editable draft reply. The small arrow beside the action title opens a menu for swapping to a different stewardship action.
 
+Detail panels can be minimized or closed for the current page, and **Reconsider** forces a fresh local recommendation instead of reusing the cached result.
+
 When the companion finds candidate PRs, the panel shows the evidence it used: reproduction signal, candidate PR numbers, smallest/broader patch size, review state, and the resulting suggested action.
 
 For **Review normally** suggestions, the panel also shows **Ask Codex to reproduce**. That button asks the local companion to open a temporary reproduction workspace in Codex Desktop when the app is installed, and starts the runnable Codex session in Terminal.app so the prompt executes immediately. The prompt tells Codex not to mutate GitHub and to try `https://playground.wordpress.net` first when that is the smallest useful reproduction path.
