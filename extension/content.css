@@ -66,6 +66,11 @@
 .codex-triage-list-button[data-state="loading"] { color: var(--fgColor-muted, #57606a); }
 .codex-triage-list-button[data-state="error"] { color: #d1242f; }
 .codex-triage-list-button[data-state="error"]::before { background: #d1242f; }
+.codex-triage-list-prefix {
+  color: var(--fgColor-muted, #57606a);
+  font-weight: 600;
+}
+.codex-triage-list-action { font-weight: 700; }
 .codex-triage-list-button[data-action="fast-merge"]::before { background: #1a7f37; }
 .codex-triage-list-button[data-action="medium-review"]::before { background: #0969da; }
 .codex-triage-list-button[data-action="needs-proof"]::before { background: #bf8700; }
@@ -136,7 +141,6 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
   max-width: 100%;
 }
 .codex-triage-summary-title {
@@ -147,6 +151,9 @@
   font-size: 15px;
   font-weight: 700;
   line-height: 1.25;
+}
+.codex-triage-action-button .codex-triage-summary-title {
+  padding: 6px 11px;
 }
 .codex-triage-why {
   margin-top: 4px;
@@ -178,26 +185,39 @@
   font-weight: 650;
 }
 .codex-triage-action-button {
-  width: 22px;
-  height: 22px;
   display: inline-flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--fgColor-muted, #57606a);
+  min-height: 32px;
+  max-width: min(100%, 420px);
+  padding: 0;
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 8px;
+  background: var(--bgColor-default, #fff);
+  color: var(--fgColor-default, #24292f);
+  box-shadow: 0 1px 0 rgba(27,31,36,.04);
   cursor: pointer;
-  font-weight: 700;
+  overflow: hidden;
 }
 .codex-triage-action-button:hover,
 .codex-triage-action-button[aria-expanded="true"] {
-  border-color: var(--borderColor-muted, #d8dee4);
+  border-color: var(--borderColor-accent-emphasis, #0969da);
   background: var(--bgColor-muted, #f6f8fa);
+}
+.codex-triage-action-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  border-left: 1px solid var(--borderColor-muted, #d8dee4);
+  color: var(--fgColor-muted, #57606a);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
 }
 .codex-triage-action-menu {
   position: absolute;
-  top: 26px;
+  top: calc(100% + 4px);
   left: 0;
   z-index: 1002;
   width: min(320px, calc(100vw - 48px));

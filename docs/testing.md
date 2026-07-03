@@ -36,7 +36,7 @@ async () => {
 
 Expected result: the detail page shows a compact Triage panel with the proposed next action, private rationale directly under the action title, label add/remove chips above the inline editable draft reply, and an action-menu arrow for swapping to a different stewardship action. Submitting mutations still requires `TRIAGE_ALLOW_APPLY=1`.
 
-The list fixture should show compact action pills beside each issue/PR title, for example **Ask proof**, **Fast merge**, **Medium**, **Proposal**, **Plan first**, and **Close**.
+The list fixture should show compact preview buttons beside each issue/PR title, for example **Triage: Ask details**, **Triage: Fast merge**, **Triage: Medium**, **Triage: Proposal**, **Triage: Plan first**, and **Triage: Close**.
 
 ## Live GitHub test performed
 

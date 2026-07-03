@@ -28,7 +28,7 @@ extension/
 
 Open a `WordPress/wordpress-playground` issue or PR page. A **Triage** panel should appear.
 
-The default UI is intentionally compact: list pages show a subtle next-action marker, and detail pages show the proposed action, a short private rationale, and an inline editable draft reply. The small arrow beside the action title opens a menu for swapping to a different stewardship action.
+The default UI is intentionally compact: list pages show a **Triage: [action]** preview button, and detail pages show the proposed action, a short private rationale, and an inline editable draft reply. The action title itself opens a menu for swapping to a different stewardship action.
 
 Detail panels can be minimized or closed for the current page, and **Reconsider** forces a fresh local recommendation instead of reusing the cached result.
 

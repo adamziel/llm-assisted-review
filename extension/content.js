@@ -95,10 +95,12 @@
         const p = presentationFor(result.suggestion);
         button.dataset.state = 'ready';
         button.dataset.action = result.suggestion.actionId || '';
-        button.textContent = p.list;
-        button.setAttribute('aria-label', `${p.long}: ${result.suggestion.justification || ''}`);
-        button.title = `${p.long}
-${result.suggestion.justification || ''}`;
+        button.innerHTML = `<span class="codex-triage-list-prefix">Triage:</span><span class="codex-triage-list-action">${escapeHtml(p.list)}</span>`;
+        button.setAttribute('aria-label', `Open triage preview: ${p.long}. ${result.suggestion.justification || ''}`);
+        button.title = `Open triage preview: ${p.long}
+${result.suggestion.justification || ''}
+
+No GitHub action happens until you review and submit.`;
       }).catch((error) => {
         button.dataset.state = 'error';
         button.textContent = 'Start server';
@@ -214,8 +216,10 @@ ${error.message}`;
         <div class="codex-triage-summary">
           <div class="codex-triage-title-wrap">
             <div class="codex-triage-title-line">
-              <span class="codex-triage-summary-title" data-role="summary-title">Checking current thread…</span>
-              <button type="button" data-role="action-menu-button" class="codex-triage-action-button" aria-label="Change suggested action" aria-expanded="false">⌄</button>
+              <button type="button" data-role="action-menu-button" class="codex-triage-action-button" aria-label="Change suggested action" aria-expanded="false">
+                <span class="codex-triage-summary-title" data-role="summary-title">Checking current thread…</span>
+                <span class="codex-triage-action-chevron" aria-hidden="true">⌄</span>
+              </button>
               <div class="codex-triage-action-menu" data-role="action-menu" hidden></div>
             </div>
             <div class="codex-triage-why" data-role="justification">Asking local companion.</div>
