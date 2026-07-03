@@ -1120,6 +1120,7 @@ Goal:
 - Determine whether the reported behavior or proposed change is reproducible/verifiable from the available public information.
 - Work only locally in this temporary directory.
 - Do not post GitHub comments, add/remove labels, close issues, push branches, or open pull requests.
+- If Chrome DevTools MCP/browser tools are available, use them for browser/UI reproduction instead of asking the maintainer to drive the browser manually.
 - When the issue is about browser behavior, UI, Blueprints, WordPress loading, or a user-visible Playground workflow, try reproducing first on https://playground.wordpress.net if that is the smallest useful path. Use a local checkout only when the live site cannot exercise the reported path, when the candidate PR must be tested, or when source-level inspection is necessary.
 - If you need source code, clone {repo} into this directory or use the local gh CLI to inspect the {kind}.
 - Keep the session focused on reproduction/verification. Do not drift into a full implementation unless a tiny test-only proof is necessary.
@@ -1162,6 +1163,7 @@ cd {shlex.quote(str(workdir))}
 echo "Starting Codex reproduction session for {repo} {kind} #{number}"
 echo "Working directory: {workdir}"
 echo "Codex policy: workspace-write sandbox, never ask for approval, web search enabled"
+echo "MCP: inherits your local Codex MCP config, including chrome-devtools when enabled"
 echo
 {shlex.quote(codex)} --cd {shlex.quote(str(workdir))} --sandbox workspace-write --ask-for-approval never --search --no-alt-screen "$(cat {shlex.quote(str(prompt_path))})"
 echo
