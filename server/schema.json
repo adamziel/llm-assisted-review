@@ -15,7 +15,8 @@
         "additionalProperties": false,
         "properties": {
           "type": { "type": "string" },
-          "label": { "type": "string" }
+          "label": { "type": "string" },
+          "reviewer": { "type": "string" }
         },
         "required": ["type"]
       }

@@ -452,7 +452,7 @@ ${error.message}`;
       'waiting-author': 'Waiting on contributor',
       'needs-design': 'Needs design acceptance',
       'has-candidate-pr': 'Has candidate PR',
-      'needs-rereview': 'Needs re-review',
+      'needs-rereview': 'Ready for re-review',
       'competing-prs': 'Choose PR path',
       'narrow-fast-path': 'Use narrow fix first',
       'needs-execution-plan': 'Accepted design, needs execution plan',
@@ -473,7 +473,7 @@ ${error.message}`;
       'waiting-author': ['Waiting on contributor', 'Already asked; no public action yet'],
       'needs-design': ['Needs design acceptance', 'Agree on shape before code review'],
       'has-candidate-pr': ['Has candidate PR', 'Route work through the existing PR'],
-      'needs-rereview': ['Needs re-review', 'Author followed up after feedback'],
+      'needs-rereview': ['Ready for re-review', 'Author followed up after feedback'],
       'competing-prs': ['Choose PR path', 'Multiple PRs address the same issue'],
       'narrow-fast-path': ['Use narrow fix first', 'Prefer the smallest sufficient patch'],
       'needs-execution-plan': ['Execution plan', 'Accepted direction still needs slices'],
@@ -490,6 +490,7 @@ ${error.message}`;
   function operationSort(op) {
     if (op.type === 'removeLabel') return 0;
     if (op.type === 'addLabel') return 1;
+    if (op.type === 'requestReview') return 2;
     return 2;
   }
 
@@ -497,6 +498,7 @@ ${error.message}`;
     if (op.type === 'comment') return 'Post edited comment';
     if (op.type === 'addLabel') return `Add label: ${op.label}`;
     if (op.type === 'removeLabel') return `Remove label: ${op.label}`;
+    if (op.type === 'requestReview') return `Request re-review from @${op.reviewer}`;
     if (op.type === 'close') return 'Will close issue/PR';
     return op.type;
   }
@@ -509,7 +511,7 @@ ${error.message}`;
       'waiting-author': ['Waiting', 'Waiting', 'Waiting on contributor'],
       'needs-design': ['Design', 'Proposal', 'Needs design'],
       'has-candidate-pr': ['Candidate', 'Candidate PR', 'Has candidate PR'],
-      'needs-rereview': ['Re-review', 'Re-review', 'Needs re-review'],
+      'needs-rereview': ['Re-review', 'Re-review', 'Ready for re-review'],
       'competing-prs': ['Choose', 'Choose PR', 'Choose PR path'],
       'narrow-fast-path': ['Fast path', 'Fast path', 'Use narrow fix first'],
       'needs-execution-plan': ['Plan', 'Plan first', 'Needs execution plan'],

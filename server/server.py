@@ -242,6 +242,12 @@ def handle_apply(payload: dict) -> dict:
                 results.append(run_gh(["gh", "issue", "edit", str(number), "--repo", repo, "--remove-label", label]))
         elif op_type == "close":
             results.append(run_gh(["gh", "pr" if item_type == "pr" else "issue", "close", str(number), "--repo", repo]))
+        elif op_type == "requestReview":
+            reviewer = str(op.get("reviewer") or "").strip().lstrip("@")
+            if item_type == "pr" and reviewer:
+                results.append(run_gh(["gh", "pr", "edit", str(number), "--repo", repo, "--add-reviewer", reviewer]))
+            else:
+                results.append({"operation": op, "skipped": True, "reason": "review requests only apply to PRs with a reviewer"})
         else:
             results.append({"operation": op, "skipped": True, "reason": "unsupported operation in MVP"})
 
@@ -596,8 +602,18 @@ def extract_pr_numbers(source: dict) -> list[int]:
         source.get("body") or "",
         "\n".join((comment.get("body") or "") for comment in source.get("comments", [])),
     ])
-    numbers = {int(match) for match in re.findall(r"github\.com/WordPress/wordpress-playground/pull/(\d+)", text, re.I)}
-    return sorted(numbers)
+    current_number = int(source.get("number") or 0)
+    numbers = []
+
+    def add(number: int) -> None:
+        if number != current_number and number not in numbers:
+            numbers.append(number)
+
+    for match in re.findall(r"github\.com/[^/\s]+/[^/\s]+/pull/(\d+)", text, re.I):
+        add(int(match))
+    for match in re.findall(r"(?<![A-Za-z0-9])#(\d{2,7})\b", text):
+        add(int(match))
+    return numbers[:20]
 
 
 def search_related_pr_numbers(repo: str, source: dict) -> list[int]:
@@ -765,15 +781,18 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
     rows = []
     candidates = source.get("candidatePRs") or []
     duplicates = source.get("possibleDuplicates") or []
+    reproduction = reproduction_evidence(source)
     if not candidates:
         rows.append({"label": "Change size", "value": "issue only; no files or lines changed"})
+        if reproduction:
+            rows.append({"label": "Issue has reproduction", "value": reproduction})
         if duplicates:
             rows.append({"label": "Possible duplicate", "value": duplicate_summary(duplicates)})
         rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
         return rows
     if candidates:
         rows.append({"label": "Issue patch", "value": "none attached; candidate PR sizes below"})
-        rows.append({"label": "Issue has reproduction", "value": "yes" if has_reproduction(source) else "not clear"})
+        rows.append({"label": "Issue has reproduction", "value": reproduction or "not clear"})
         linked = ", ".join(f"#{pr['number']}" for pr in candidates)
         rows.append({"label": "Candidate PRs", "value": linked})
         smallest = candidates[0]
@@ -882,14 +901,81 @@ def event_summary(event: dict) -> str:
     return f"{kind} by {author}"
 
 
+def latest_reviewer_login(source: dict) -> str:
+    review = source.get("reviewState") or {}
+    latest = review.get("latestReviewer") or {}
+    return str(latest.get("author") or "").strip().lstrip("@")
+
+
+def requestable_reviewer_login(source: dict) -> str:
+    reviewer = latest_reviewer_login(source)
+    if not reviewer or is_automation_login(reviewer):
+        return ""
+    return reviewer
+
+
+def is_automation_login(login: str) -> bool:
+    lowered = str(login or "").lower()
+    return "bot" in lowered or "copilot" in lowered or lowered in {"github-actions"}
+
+
+def rereview_justification(source: dict) -> str:
+    review = source.get("reviewState") or {}
+    reviewer = requestable_reviewer_login(source)
+    latest_reviewer = latest_reviewer_login(source)
+    author_activity = review.get("latestAuthorActivity") or {}
+    author = str(author_activity.get("author") or author_mention(source) or "the author").strip().lstrip("@")
+    if reviewer and author:
+        return f"@{author} pushed updates after @{reviewer} gave feedback, so the useful action is an internal re-review request rather than another public comment."
+    if reviewer:
+        return f"The PR changed after @{reviewer} gave feedback, so the useful action is an internal re-review request rather than another public comment."
+    if latest_reviewer and is_automation_login(latest_reviewer):
+        return f"@{author} pushed updates after automated review feedback, so no public comment is needed; this is ready for a maintainer review pass."
+    return "The PR author responded after reviewer feedback, so the useful action is to route it back into review without adding a public comment."
+
+
 def has_reproduction(source: dict) -> bool:
-    text = " ".join([source.get("body") or "", source.get("title") or ""]).lower()
-    return "steps to reproduce" in text or "user-attachments" in text or "<img" in text or "screenshot" in text or "reproduce" in text
+    return bool(reproduction_evidence(source))
+
+
+def reproduction_evidence(source: dict) -> str:
+    if text_has_reproduction(source.get("body") or ""):
+        return "yes, in description"
+    comments = "\n".join(comment.get("body") or "" for comment in source.get("comments", []))
+    if text_has_reproduction(comments):
+        return "yes, in discussion"
+    return ""
+
+
+def text_has_reproduction(text: str) -> bool:
+    lowered = text.lower()
+    if any(term in lowered for term in ["user-attachments", "<img", "screenshot", "exact error", "error code", "playground url"]):
+        return True
+    positive = [
+        "steps to reproduce",
+        "to reproduce",
+        "i can reproduce",
+        "can reproduce this",
+        "reproduced",
+        "same issue",
+        "same problem",
+        "when i click",
+        "when i open",
+        "when opening",
+        "when using",
+    ]
+    return any(term in lowered for term in positive)
+
+
+def discussion_text(source: dict) -> str:
+    labels = " ".join(label_name(label) for label in source.get("labels", []))
+    comments = "\n".join(comment.get("body") or "" for comment in source.get("comments", []))
+    return "\n".join([source.get("title") or "", source.get("body") or "", labels, comments])
 
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 5,
+        "triageVersion": 6,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -903,7 +989,7 @@ def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) ->
         "additions": source.get("additions"),
         "deletions": source.get("deletions"),
         "changedFiles": source.get("changedFiles"),
-        "recentComments": tail_comments(source.get("comments", []), 6),
+        "discussionComments": compact_comments(source.get("comments", [])),
         "recentReviews": tail_reviews(source.get("reviews", []), 6),
         "candidatePRs": [
             {
@@ -931,8 +1017,12 @@ def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) ->
 
 
 def tail_comments(comments: list, n: int) -> list:
+    return compact_comments(comments[-n:])
+
+
+def compact_comments(comments: list) -> list:
     compact = []
-    for c in comments[-n:]:
+    for c in comments:
         compact.append({
             "author": (c.get("author") or {}).get("login") if isinstance(c.get("author"), dict) else None,
             "createdAt": c.get("createdAt"),
@@ -996,6 +1086,8 @@ def codex_suggestion(repo: str, item_type: str, number: int, source: dict) -> di
 def compact_for_prompt(source: dict) -> dict:
     data = summarize_source(source)
     data["body"] = (source.get("body") or "")[:6000]
+    data["discussionComments"] = compact_comments(source.get("comments", []))
+    data["discussionHasReproduction"] = reproduction_evidence(source) or "not clear"
     data["recentComments"] = tail_comments(source.get("comments", []), 5)
     data["recentReviews"] = tail_reviews(source.get("reviews", []), 5)
     return data
@@ -1115,7 +1207,8 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
     title = source.get("title") or ""
     body = source.get("body") or ""
     labels = [label_name(l) for l in source.get("labels", [])]
-    text = " ".join([title, body, " ".join(labels)]).lower()
+    discussion = discussion_text(source)
+    text = discussion.lower()
     lines = int(source.get("additions") or 0) + int(source.get("deletions") or 0)
     files = int(source.get("changedFiles") or 0)
     is_draft = bool(source.get("isDraft"))
@@ -1148,7 +1241,7 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
         return choose("duplicate-of", "duplicate-issue", "Duplicate of", f"Possible duplicate #{duplicate['number']} has a very similar title, so close only if that issue is the canonical place to track this.")
 
     if item_type == "pr" and (source.get("reviewState") or {}).get("needsRereview"):
-        return choose("needs-rereview", "author-followed-up", "Needs re-review", "The PR author responded after reviewer feedback, so the next action is re-test/re-review rather than fresh triage.")
+        return choose("needs-rereview", "author-followed-up", "Ready for re-review", rereview_justification(source))
 
     if any(term in text for term in wait_terms):
         days = age_in_days(source.get("updatedAt"))
@@ -1182,7 +1275,7 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
         return choose("medium-review", "make-reviewable", "Medium review", "Documentation work is in scope, but this should still be kept to a reviewable slice with clear verification.")
 
     if any(word in text for word in bug_terms):
-        has_detail = len(body.strip()) > 500 or "```" in body or "steps" in text or "reproduce" in text or "summary" in text or "problem" in text
+        has_detail = bool(reproduction_evidence(source)) or len(discussion.strip()) > 500 or "```" in discussion or "steps" in text or "summary" in text or "problem" in text
         if not has_detail:
             return choose("needs-proof", "reproduction", "Needs reproduction", "The report looks actionable only after exact reproduction details or logs are available.")
         if item_type == "issue":
@@ -1285,9 +1378,10 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
             f"{prefix}Thanks for the clear report. This already has a candidate fix in {pr_text}, so the next step is to review and test that PR against the reproduction here."
         )
     elif action_id == "needs-rereview":
-        comment = (
-            f"{prefix}Thanks for following up on “{subject}”. The next step is a re-test/re-review from the previous reviewer or area maintainer to confirm whether the latest update resolves the reported issue."
-        )
+        comment = ""
+        reviewer = requestable_reviewer_login(source)
+        if reviewer:
+            suggestion.setdefault("operations", []).append({"type": "requestReview", "reviewer": reviewer})
     elif action_id == "competing-prs":
         candidates = source.get("candidatePRs") or []
         linked = " and ".join(f"#{pr['number']}" for pr in candidates[:2])
