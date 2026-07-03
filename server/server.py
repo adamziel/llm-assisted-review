@@ -798,17 +798,7 @@ def duplicate_summary(duplicates: list[dict]) -> str:
 
 
 def pr_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
-    rows = []
-    rows.append({"label": "Change size", "value": change_size_text(source)})
-    if source.get("isDraft"):
-        rows.append({"label": "PR state", "value": "draft"})
-    review = source.get("reviewState") or {}
-    if review.get("latestReviewer"):
-        rows.append({"label": "Latest reviewer feedback", "value": event_summary(review["latestReviewer"])})
-    if review.get("latestAuthorActivity"):
-        rows.append({"label": "Latest author activity", "value": event_summary(review["latestAuthorActivity"])})
-    rows.append({"label": "Suggested action", "value": action_summary(suggestion, [])})
-    return rows
+    return [{"label": "Change size", "value": change_size_text(source)}]
 
 
 def change_size_text(source: dict) -> str:
@@ -817,7 +807,7 @@ def change_size_text(source: dict) -> str:
     lines = int(source.get("linesChanged") or additions + deletions)
     files = source.get("changedFiles")
     if additions or deletions:
-        line_text = f"+{additions}/−{deletions} ({lines} changed lines)"
+        line_text = f"+{additions} −{deletions} lines"
     else:
         line_text = f"{lines} changed lines"
     if files:
@@ -826,7 +816,7 @@ def change_size_text(source: dict) -> str:
         except (TypeError, ValueError):
             file_count = 0
         noun = "file" if file_count == 1 else "files"
-        return f"{files} {noun}, {line_text}"
+        return f"{line_text}, {files} {noun}"
     return line_text
 
 

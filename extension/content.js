@@ -218,7 +218,7 @@ ${error.message}`;
             <div class="codex-triage-title-line">
               <button type="button" data-role="action-menu-button" class="codex-triage-action-button" aria-label="Change suggested action" aria-expanded="false">
                 <span class="codex-triage-summary-title" data-role="summary-title">Checking current thread…</span>
-                <span class="codex-triage-action-chevron" aria-hidden="true">⌄</span>
+                <span class="codex-triage-action-chevron" aria-hidden="true"></span>
               </button>
               <div class="codex-triage-action-menu" data-role="action-menu" hidden></div>
             </div>
@@ -640,7 +640,9 @@ ${error.message}`;
 
   function updateLocalActions(panel) {
     const root = panel.querySelector('[data-role="local-actions"]');
-    if (root) root.hidden = !['fast-merge', 'medium-review', 'needs-owner'].includes(panel.dataset.action);
+    if (!root) return;
+    const item = JSON.parse(panel.dataset.item || '{}');
+    root.hidden = item.type !== 'issue' || !['medium-review', 'needs-proof', 'needs-owner'].includes(panel.dataset.action);
   }
 
   function setPanelMinimized(panel, minimized) {

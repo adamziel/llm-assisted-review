@@ -21,6 +21,9 @@
   position: relative;
   z-index: 2;
 }
+.codex-triage-list-button > * {
+  pointer-events: none;
+}
 .codex-triage-list-row {
   grid-template-columns: 0 32px minmax(0, 1fr) max-content 0 !important;
 }
@@ -46,13 +49,13 @@
   background: #6e7781;
 }
 .codex-triage-list-button::after {
-  content: "⌄";
-  position: relative;
-  top: -1px;
-  color: var(--fgColor-muted, #57606a);
-  font-size: 11px;
-  line-height: 1;
-  margin-left: 1px;
+  content: "";
+  width: 0;
+  height: 0;
+  margin-left: 2px;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--fgColor-muted, #57606a);
 }
 .codex-triage-list-button:hover {
   border-color: var(--borderColor-accent-emphasis, #0969da);
@@ -154,7 +157,7 @@
   line-height: 1.25;
 }
 .codex-triage-action-button .codex-triage-summary-title {
-  padding: 6px 11px;
+  padding: 6px 6px 6px 11px;
 }
 .codex-triage-why {
   margin-top: 4px;
@@ -200,6 +203,9 @@
   cursor: pointer;
   overflow: hidden;
 }
+.codex-triage-action-button > * {
+  pointer-events: none;
+}
 .codex-triage-action-button:hover,
 .codex-triage-action-button[aria-expanded="true"] {
   border-color: var(--borderColor-accent-emphasis, #0969da);
@@ -209,12 +215,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  border-left: 1px solid var(--borderColor-muted, #d8dee4);
+  width: 20px;
+  margin-right: 8px;
   color: var(--fgColor-muted, #57606a);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
+}
+.codex-triage-action-chevron::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
 }
 .codex-triage-action-menu {
   position: absolute;
