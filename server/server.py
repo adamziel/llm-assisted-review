@@ -261,16 +261,20 @@ def handle_reproduce(payload: dict) -> dict:
     source = fetch_item(repo, item_type, number, payload)
     workdir = Path(tempfile.mkdtemp(prefix=f"playground-repro-{number}-"))
     prompt_path = workdir / "prompt.md"
+    readme_path = workdir / "README.md"
     script_path = workdir / "run-codex-repro.command"
     prompt_path.write_text(reproduction_prompt(repo, item_type, number, source), encoding="utf-8")
+    readme_path.write_text(reproduction_readme(repo, item_type, number, prompt_path), encoding="utf-8")
     script_path.write_text(reproduction_script(workdir, prompt_path, repo, item_type, number), encoding="utf-8")
     script_path.chmod(0o755)
-    open_terminal(script_path)
+    launch = open_codex_reproduction(workdir, script_path)
     return {
         "ok": True,
-        "message": f"Opened a local Codex reproduction session for {repo}#{number}.",
+        "message": launch.get("message") or f"Opened {launch['surface']} for {repo}#{number}.",
+        "launch": launch,
         "workdir": str(workdir),
         "promptPath": str(prompt_path),
+        "readmePath": str(readme_path),
         "scriptPath": str(script_path),
     }
 
@@ -860,6 +864,7 @@ Goal:
 - Determine whether the reported behavior or proposed change is reproducible/verifiable from the available public information.
 - Work only locally in this temporary directory.
 - Do not post GitHub comments, add/remove labels, close issues, push branches, or open pull requests.
+- When the issue is about browser behavior, UI, Blueprints, WordPress loading, or a user-visible Playground workflow, try reproducing first on https://playground.wordpress.net if that is the smallest useful path. Use a local checkout only when the live site cannot exercise the reported path, when the candidate PR must be tested, or when source-level inspection is necessary.
 - If you need source code, clone {repo} into this directory or use the local gh CLI to inspect the {kind}.
 - Keep the session focused on reproduction/verification. Do not drift into a full implementation unless a tiny test-only proof is necessary.
 
@@ -871,6 +876,24 @@ When finished, report:
 
 GitHub context:
 {json.dumps(compact_for_prompt(source), ensure_ascii=False, indent=2)}
+"""
+
+
+def reproduction_readme(repo: str, item_type: str, number: int, prompt_path: Path) -> str:
+    kind = "PR" if item_type == "pr" else "issue"
+    return f"""# Codex reproduction workspace
+
+GitHub target: `{repo}` {kind} #{number}
+
+Start with `prompt.md`. If this opened in Codex Desktop, paste the prompt into a new local task from this workspace.
+
+For browser/UI/Blueprint reports, prefer `https://playground.wordpress.net` when it is enough to reproduce or disprove the report. Use a local checkout when the live site cannot exercise the path or a candidate PR needs to be tested.
+
+Prompt path:
+
+```text
+{prompt_path}
+```
 """
 
 
@@ -891,9 +914,51 @@ read -r _
 """
 
 
+def open_codex_reproduction(workdir: Path, script_path: Path) -> dict:
+    if codex_desktop_available():
+        codex = shutil.which("codex")
+        if codex:
+            try:
+                result = subprocess.run([codex, "app", str(workdir)], text=True, capture_output=True, timeout=10)
+                if result.returncode == 0:
+                    return {
+                        "surface": "Codex Desktop",
+                        "fallback": False,
+                        "message": "Opened Codex Desktop with a reproduction workspace. Start with prompt.md.",
+                    }
+            except Exception:
+                pass
+        try:
+            result = subprocess.run(["open", "-a", "Codex", str(workdir)], text=True, capture_output=True, timeout=10)
+            if result.returncode == 0:
+                return {
+                    "surface": "Codex Desktop",
+                    "fallback": False,
+                    "message": "Opened Codex Desktop with a reproduction workspace. Start with prompt.md.",
+                }
+        except Exception:
+            pass
+
+    open_terminal(script_path)
+    return {
+        "surface": "Terminal Codex session",
+        "fallback": True,
+        "message": "Opened a Terminal Codex session with the reproduction prompt.",
+    }
+
+
+def codex_desktop_available() -> bool:
+    if sys.platform != "darwin":
+        return False
+    return any(path.exists() for path in [
+        Path("/Applications/Codex.app"),
+        Path.home() / "Applications" / "Codex.app",
+    ])
+
+
 def open_terminal(script_path: Path) -> None:
     if sys.platform != "darwin":
-        raise RuntimeError("Opening a local terminal is currently implemented for macOS Terminal.app.")
+        raise RuntimeError("Opening Codex reproduction sessions is currently implemented for macOS.")
     subprocess.Popen(["open", "-a", "Terminal", str(script_path)])
 
 
