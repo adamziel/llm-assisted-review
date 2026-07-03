@@ -27,6 +27,13 @@
 .codex-triage-list-row {
   grid-template-columns: 0 32px minmax(0, 1fr) max-content 0 !important;
 }
+.codex-triage-list-row-muted {
+  opacity: .58;
+}
+.codex-triage-list-row-muted:hover,
+.codex-triage-list-row-muted:focus-within {
+  opacity: .82;
+}
 .codex-triage-list-metadata {
   min-width: max-content;
 }

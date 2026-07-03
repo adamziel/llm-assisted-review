@@ -73,6 +73,16 @@
           "id": "recently-asked",
           "title": "Already asked for follow-up",
           "comment": ""
+        },
+        {
+          "id": "draft-pr",
+          "title": "Draft PR",
+          "comment": ""
+        },
+        {
+          "id": "changes-requested",
+          "title": "Waiting for author changes",
+          "comment": ""
         }
       ],
       "operations": []
@@ -262,6 +272,11 @@
         {
           "id": "already-closed",
           "title": "Already closed/merged",
+          "comment": ""
+        },
+        {
+          "id": "active-pr",
+          "title": "Tracked in active PR",
           "comment": ""
         }
       ],

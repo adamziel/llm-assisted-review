@@ -806,7 +806,7 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
 
 
 def action_links(item_type: str, source: dict, suggestion: dict) -> list[dict]:
-    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path"}:
+    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path", "no-action"}:
         return []
     links = []
     for pr in (source.get("candidatePRs") or [])[:3]:
@@ -1258,6 +1258,9 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
     if item_type == "issue" and source.get("candidatePRs"):
         candidates = source["candidatePRs"]
         smallest = candidates[0]
+        active = active_candidate_pr(candidates)
+        if active:
+            return choose("no-action", "active-pr", "No issue action", f"This issue is already being handled in active PR #{active['number']}; keep the work on that PR instead of mutating the issue.")
         broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) >= max(80, (smallest.get("linesChanged") or 0) * 4)]
         if broader:
             return choose("narrow-fast-path", "small-vs-broad", "Use narrow candidate first", f"The issue already has reproduction context and candidate PRs; review #{smallest['number']} first because it is the smallest path while broader PRs change more surface area.")
@@ -1271,6 +1274,12 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
 
     if item_type == "pr" and (source.get("reviewState") or {}).get("needsRereview"):
         return choose("needs-rereview", "author-followed-up", "Ready for re-review", rereview_justification(source))
+
+    if item_type == "pr" and is_draft:
+        return choose("waiting-author", "draft-pr", "Waiting on author", "This PR is still a draft, so maintainers do not need to review it until the author marks it ready.")
+
+    if item_type == "pr" and pr_waiting_on_author(source):
+        return choose("waiting-author", "changes-requested", "Waiting on author", "Changes were requested and the author has not followed up yet, so there is no maintainer action right now.")
 
     if any(term in text for term in wait_terms):
         days = age_in_days(source.get("updatedAt"))
@@ -1325,6 +1334,22 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
         return choose("needs-owner", "no-capacity", "Needs owner", "There is no patch attached, so the next step is an owner for reproduction, scope, and the smallest fix/test path.")
 
     return choose("medium-review", "make-reviewable", "Medium review", "The item appears concrete enough for the normal stewardship queue, but it needs reviewable scope and verification before maintainers spend review time.")
+
+
+def active_candidate_pr(candidates: list[dict]) -> dict | None:
+    for pr in candidates:
+        if str(pr.get("state") or "").upper() != "OPEN":
+            continue
+        review = pr.get("reviewState") or {}
+        if review.get("latestReviewer") or review.get("latestAuthorActivity"):
+            return pr
+    return None
+
+
+def pr_waiting_on_author(source: dict) -> bool:
+    review = source.get("reviewState") or {}
+    feedback = review.get("latestReviewer") or {}
+    return feedback.get("kind") == "CHANGES_REQUESTED" and not review.get("needsRereview")
 
 def action_from_catalog(action_id: str, variant_id: str, status: str, justification: str) -> dict:
     catalog = load_actions()

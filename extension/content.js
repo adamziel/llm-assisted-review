@@ -95,6 +95,7 @@
         const p = presentationFor(result.suggestion);
         button.dataset.state = 'ready';
         button.dataset.action = result.suggestion.actionId || '';
+        row.classList.toggle('codex-triage-list-row-muted', isQuietSuggestion(result.suggestion));
         button.innerHTML = `<span class="codex-triage-list-prefix">Triage:</span><span class="codex-triage-list-action">${escapeHtml(p.list)}</span>`;
         button.setAttribute('aria-label', `Open triage preview: ${p.long}. ${result.suggestion.justification || ''}`);
         button.title = `Open triage preview: ${p.long}
@@ -102,6 +103,7 @@ ${result.suggestion.justification || ''}
 
 No GitHub action happens until you review and submit.`;
       }).catch((error) => {
+        row.classList.remove('codex-triage-list-row-muted');
         button.dataset.state = 'error';
         button.textContent = 'Start server';
         button.setAttribute('aria-label', 'Start local companion to load triage suggestions');
@@ -324,7 +326,7 @@ ${error.message}`;
     panel.dataset.existingLabels = JSON.stringify(result.source?.labels || []);
     panel.dataset.applyEnabled = result.applyEnabled ? '1' : '0';
     panel.dataset.action = suggestion.actionId || '';
-    panel.querySelector('[data-role="summary-title"]').textContent = actionTitleFor(suggestion.actionId, suggestion.shortTitle || presentation.long);
+    panel.querySelector('[data-role="summary-title"]').textContent = actionTitleFor(suggestion.actionId, suggestion.status || suggestion.shortTitle || presentation.long);
     panel.querySelector('[data-role="justification"]').textContent = suggestion.justification || 'No private rationale provided.';
     renderEvidence(panel, result.evidence || []);
     renderActionLinks(panel, result.links || []);
@@ -500,7 +502,7 @@ ${error.message}`;
       'no-capacity': 'Useful, no capacity',
       'close-not-actionable': 'Close quickly',
       'duplicate-of': 'Duplicate of',
-      'no-action': 'No action',
+      'no-action': fallback || 'No action',
     };
     return titles[actionId] || fallback || 'Suggested action';
   }
@@ -544,6 +546,9 @@ ${error.message}`;
   }
 
   function presentationFor(suggestion) {
+    if (suggestion?.actionId === 'no-action' && suggestion.status && suggestion.status !== 'No action') {
+      return { short: 'Done', list: suggestion.status, long: suggestion.status };
+    }
     const map = {
       'fast-merge': ['Fast', 'Fast merge', 'Fast merge'],
       'medium-review': ['Medium', 'Medium', 'Medium review'],
@@ -563,6 +568,10 @@ ${error.message}`;
     };
     const [short, list, long] = map[suggestion?.actionId] || ['Triage', 'Triage', suggestion?.status || 'Suggested triage'];
     return { short, list, long };
+  }
+
+  function isQuietSuggestion(suggestion) {
+    return ['no-action', 'waiting-author'].includes(suggestion?.actionId);
   }
 
   async function apiRequest(path, body) {
