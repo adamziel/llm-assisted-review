@@ -204,6 +204,7 @@ def handle_suggest(payload: dict) -> dict:
         "cached": False,
         "source": summarize_source(source),
         "evidence": evidence_rows(item_type, source, suggestion),
+        "links": action_links(item_type, source, suggestion),
         "suggestion": suggestion,
         "actions": load_actions()["actions"],
         "applyEnabled": ALLOW_APPLY,
@@ -551,6 +552,7 @@ def summarize_source(source: dict) -> dict:
                 "title": pr.get("title"),
                 "url": pr.get("url"),
                 "state": pr.get("state"),
+                "labels": [label_name(label) for label in pr.get("labels", [])],
                 "linesChanged": pr.get("linesChanged"),
                 "changedFiles": pr.get("changedFiles"),
                 "reviewState": pr.get("reviewState"),
@@ -701,7 +703,7 @@ def issue_keywords(text: str) -> list[str]:
 
 
 def fetch_pr_summary(repo: str, number: int) -> dict | None:
-    fields = ["number", "title", "url", "state", "author", "createdAt", "updatedAt", "isDraft", "additions", "deletions", "changedFiles", "reviews", "comments", "commits"]
+    fields = ["number", "title", "url", "state", "author", "createdAt", "updatedAt", "isDraft", "additions", "deletions", "changedFiles", "labels", "reviews", "comments", "commits"]
     try:
         raw = subprocess.check_output(
             ["gh", "pr", "view", str(number), "--repo", repo, "--json", ",".join(fields)],
@@ -791,20 +793,37 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
         rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
         return rows
     if candidates:
-        rows.append({"label": "Issue patch", "value": "none attached; candidate PR sizes below"})
-        rows.append({"label": "Issue has reproduction", "value": reproduction or "not clear"})
-        linked = ", ".join(f"#{pr['number']}" for pr in candidates)
-        rows.append({"label": "Candidate PRs", "value": linked})
         smallest = candidates[0]
-        rows.append({"label": "Smallest candidate", "value": f"#{smallest['number']}, {change_size_text(smallest)}"})
+        rows.append({"label": "Reproduction", "value": reproduction or "not clear"})
+        rows.append({"label": "Review target", "value": candidate_pr_text(smallest), "href": smallest.get("url")})
         broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) > (smallest.get("linesChanged") or 0)]
         if broader:
-            rows.append({"label": "Broader candidate", "value": ", ".join(f"#{pr['number']}, {change_size_text(pr)}" for pr in broader[:2])})
+            rows.append({"label": "Other candidates", "value": ", ".join(f"#{pr['number']}, {change_size_text(pr)}" for pr in broader[:2])})
         review = candidate_review_summary(candidates)
         if review:
             rows.append({"label": "Review state", "value": review})
-        rows.append({"label": "Suggested action", "value": action_summary(suggestion, candidates)})
     return rows
+
+
+def action_links(item_type: str, source: dict, suggestion: dict) -> list[dict]:
+    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path"}:
+        return []
+    links = []
+    for pr in (source.get("candidatePRs") or [])[:3]:
+        if pr.get("url"):
+            links.append({
+                "label": f"Review PR #{pr.get('number')}",
+                "href": pr.get("url"),
+                "meta": candidate_pr_text(pr, include_number=False),
+            })
+    return links
+
+
+def candidate_pr_text(pr: dict, include_number: bool = True) -> str:
+    title = short_subject(pr.get("title") or "candidate PR")
+    size = change_size_text(pr)
+    prefix = f"#{pr.get('number')} · " if include_number and pr.get("number") else ""
+    return f"{prefix}{title} · {size}"
 
 
 def duplicate_summary(duplicates: list[dict]) -> str:
@@ -975,7 +994,7 @@ def discussion_text(source: dict) -> str:
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 6,
+        "triageVersion": 7,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -1231,10 +1250,10 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
         smallest = candidates[0]
         broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) >= max(80, (smallest.get("linesChanged") or 0) * 4)]
         if broader:
-            return choose("narrow-fast-path", "small-vs-broad", "Use narrow candidate first", f"The issue has reproduction and candidate PRs; #{smallest['number']} is the smallest path while broader PRs change more surface area.")
+            return choose("narrow-fast-path", "small-vs-broad", "Use narrow candidate first", f"The issue already has reproduction context and candidate PRs; review #{smallest['number']} first because it is the smallest path while broader PRs change more surface area.")
         if len(candidates) > 1:
             return choose("competing-prs", "choose-path", "Choose implementation path", "Multiple candidate PRs address the report, so maintainers should choose a path before asking for more review.")
-        return choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", f"The issue already has candidate PR #{smallest['number']}; asking the reporter for an owner would add process instead of moving review forward.")
+        return choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", f"The discussion already has reproduction context and candidate PR #{smallest['number']}; the useful next action is to review that PR, not post another issue comment.")
 
     if item_type == "issue" and likely_duplicate_issue(source):
         duplicate = source["possibleDuplicates"][0]
@@ -1371,12 +1390,7 @@ def personalize_suggestion(suggestion: dict, item_type: str, source: dict) -> di
                 "and include screenshots or a Playground link if user-visible."
             )
     elif action_id == "has-candidate-pr":
-        candidate = (source.get("candidatePRs") or [{}])[0]
-        pr_number = candidate.get("number")
-        pr_text = f"#{pr_number}" if pr_number else "the linked PR"
-        comment = (
-            f"{prefix}Thanks for the clear report. This already has a candidate fix in {pr_text}, so the next step is to review and test that PR against the reproduction here."
-        )
+        comment = ""
     elif action_id == "needs-rereview":
         comment = ""
         reviewer = requestable_reviewer_login(source)
@@ -1470,10 +1484,12 @@ def add_candidate_issue_labels(suggestion: dict, source: dict, item_type: str) -
     text = " ".join([source.get("title") or "", source.get("body") or "", " ".join(existing)]).lower()
     operations = suggestion.setdefault("operations", [])
 
-    if "[Type] Enhancement" in existing and any(term in text for term in ["covering", "broken", "bug", "fails", "error", "regression"]):
+    if "[Type] Enhancement" in existing and any(term in text for term in ["covering", "broken", "bug", "crash", "fails", "error", "regression"]):
         operations.append({"type": "removeLabel", "label": "[Type] Enhancement"})
-    if any(term in text for term in ["covering", "broken", "bug", "fails", "error", "regression"]) and "[Type] Bug" not in existing:
+    if any(term in text for term in ["covering", "broken", "bug", "crash", "fails", "error", "regression"]) and "[Type] Bug" not in existing:
         operations.append({"type": "addLabel", "label": "[Type] Bug"})
+    if any(term in text for term in ["browser", "chrome", "chromium", "edge", "opera", "view transitions"]) and "[Aspect] Browser" not in existing:
+        operations.append({"type": "addLabel", "label": "[Aspect] Browser"})
     if "website" in text:
         if "[Aspect] Website" not in existing:
             operations.append({"type": "addLabel", "label": "[Aspect] Website"})

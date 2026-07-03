@@ -5,6 +5,7 @@
       "[Status] Awaits reporter response",
       "[Type] Bug",
       "[Type] Enhancement",
+      "[Aspect] Browser",
       "[Aspect] Website",
       "[Package][@wp-playground] Website"
     ]
@@ -120,14 +121,10 @@
         {
           "id": "issue-has-pr",
           "title": "Issue has implementation",
-          "comment": "Thanks for the clear report. This already has a candidate PR, so the next step is to review and test that PR against the reproduction here."
+          "comment": ""
         }
       ],
-      "operations": [
-        {
-          "type": "comment"
-        }
-      ]
+      "operations": []
     },
     {
       "id": "needs-rereview",

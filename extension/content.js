@@ -226,6 +226,7 @@ ${error.message}`;
             <div class="codex-triage-evidence" data-role="evidence" hidden></div>
           </div>
         </div>
+        <div class="codex-triage-links" data-role="links" hidden></div>
 
         <div class="codex-triage-field" data-role="field">
           <div class="codex-triage-label-row" data-role="label-row" hidden>
@@ -299,6 +300,7 @@ ${error.message}`;
     const actionButton = panel.querySelector('[data-role="action-menu-button"]');
     const menu = panel.querySelector('[data-role="action-menu"]');
     const evidence = panel.querySelector('[data-role="evidence"]');
+    const links = panel.querySelector('[data-role="links"]');
     panel.dataset.action = 'unavailable';
     panel.dataset.applyEnabled = '0';
     if (title) title.textContent = 'Start local companion';
@@ -309,6 +311,7 @@ ${error.message}`;
     if (actionButton) actionButton.hidden = true;
     if (menu) menu.hidden = true;
     if (evidence) evidence.hidden = true;
+    if (links) links.hidden = true;
     setStatus(panel, error?.message ? `Connection detail: ${error.message}` : 'Companion is not reachable.');
   }
 
@@ -324,6 +327,7 @@ ${error.message}`;
     panel.querySelector('[data-role="summary-title"]').textContent = actionTitleFor(suggestion.actionId, suggestion.shortTitle || presentation.long);
     panel.querySelector('[data-role="justification"]').textContent = suggestion.justification || 'No private rationale provided.';
     renderEvidence(panel, result.evidence || []);
+    renderActionLinks(panel, result.links || []);
     setCommentValue(panel, suggestion.publicComment || '');
     renderOperations(panel, suggestion.operations || []);
     renderActionMenu(panel, actions, suggestion.actionId);
@@ -338,8 +342,30 @@ ${error.message}`;
     for (const row of rows) {
       const item = document.createElement('div');
       item.className = 'codex-triage-evidence__row';
-      item.innerHTML = `<span>${escapeHtml(row.label)}</span><strong>${escapeHtml(row.value)}</strong>`;
+      const value = row.href
+        ? `<a href="${escapeHtml(row.href)}" target="_blank" rel="noreferrer">${escapeHtml(row.value)}</a>`
+        : `<strong>${escapeHtml(row.value)}</strong>`;
+      item.innerHTML = `<span>${escapeHtml(row.label)}</span>${value}`;
       root.appendChild(item);
+    }
+  }
+
+  function renderActionLinks(panel, links) {
+    const root = panel.querySelector('[data-role="links"]');
+    if (!root) return;
+    root.hidden = !links.length;
+    root.innerHTML = '';
+    for (const link of links) {
+      const anchor = document.createElement('a');
+      anchor.className = 'codex-triage-link-card';
+      anchor.href = link.href;
+      anchor.target = '_blank';
+      anchor.rel = 'noreferrer';
+      anchor.innerHTML = `
+        <span class="codex-triage-link-card__label">${escapeHtml(link.label || 'Open link')}</span>
+        <span class="codex-triage-link-card__meta">${escapeHtml(link.meta || '')}</span>
+      `;
+      root.appendChild(anchor);
     }
   }
 
@@ -634,10 +660,11 @@ ${error.message}`;
     const draftSection = panel.querySelector('[data-role="draft-section"]');
     const button = panel.querySelector('[data-role="apply"]');
     const hasLocalActions = !panel.querySelector('[data-role="local-actions"]')?.hidden;
+    const canApplyOperations = hasOperations && panel.dataset.applyEnabled === '1';
     if (field) field.hidden = !hasComment && !hasOperations && !hasLocalActions;
     if (draftSection) draftSection.hidden = !hasComment;
-    button.hidden = !hasComment && !hasOperations;
-    button.disabled = !hasComment && !hasOperations;
+    button.hidden = !hasComment && !canApplyOperations;
+    button.disabled = !hasComment && !canApplyOperations;
   }
 
   function updateLocalActions(panel) {
