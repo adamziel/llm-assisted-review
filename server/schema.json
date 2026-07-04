@@ -6,6 +6,16 @@
     "variantId": { "type": "string" },
     "status": { "type": "string" },
     "shortTitle": { "type": "string" },
+    "nextAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "short": { "type": "string" },
+        "list": { "type": "string" },
+        "long": { "type": "string" },
+        "detail": { "type": "string" }
+      }
+    },
     "justification": { "type": "string" },
     "publicComment": { "type": "string" },
     "operations": {

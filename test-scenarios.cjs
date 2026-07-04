@@ -47,6 +47,8 @@ async function waitForPanel(page) {
       ['no-capacity', '/local/scenarios/issues/109'],
       ['duplicate-of', '/local/scenarios/issues/110'],
       ['close-solved', '/local/scenarios/issues/111'],
+      ['candidate-pr-review', '/local/scenarios/issues/112'],
+      ['candidate-pr-wait', '/local/scenarios/issues/113'],
       ['no-action', '/local/scenarios/issues/107'],
     ];
 

@@ -528,6 +528,17 @@ ${error.message}`;
   }
 
   function presentationFor(suggestion) {
+    if (suggestion?.nextAction) {
+      const next = suggestion.nextAction;
+      const long = next.long || next.list || next.short;
+      if (long) {
+        return {
+          short: next.short || long,
+          list: next.list || long,
+          long,
+        };
+      }
+    }
     const copy = nextActionCopy(suggestion);
     return { short: copy.short, list: copy.list, long: copy.long };
   }

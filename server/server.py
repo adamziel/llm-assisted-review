@@ -549,6 +549,63 @@ def scenario_catalog() -> dict[int, dict]:
                 }
             ],
         },
+        112: {
+            "type": "issue",
+            "title": "Git directory install fails in browser Playground",
+            "caption": "Candidate PR exists and needs first review",
+            "body": "The browser build fails when installing a git:directory dependency. #2012 is a candidate fix.",
+            "labels": ["[Type] Bug"],
+            "state": "OPEN",
+            "author": {"login": "bundle-reporter"},
+            "updatedAt": "2026-07-03T14:20:00Z",
+            "candidatePRs": [
+                {
+                    "number": 2012,
+                    "title": "Route git directory installs through the browser bundle",
+                    "url": "https://github.com/WordPress/wordpress-playground/pull/2012",
+                    "state": "OPEN",
+                    "isDraft": False,
+                    "additions": 92,
+                    "deletions": 12,
+                    "linesChanged": 104,
+                    "changedFiles": 4,
+                    "reviewState": {},
+                }
+            ],
+        },
+        113: {
+            "type": "issue",
+            "title": "File browser overlaps the top navigation",
+            "caption": "Candidate PR already has human review",
+            "body": "The file browser overlaps the top navigation. #2013 has a candidate fix.",
+            "labels": ["[Type] Bug"],
+            "state": "OPEN",
+            "author": {"login": "layout-reporter"},
+            "updatedAt": "2026-07-03T14:25:00Z",
+            "candidatePRs": [
+                {
+                    "number": 2013,
+                    "title": "Constrain the file browser below navigation",
+                    "url": "https://github.com/WordPress/wordpress-playground/pull/2013",
+                    "state": "OPEN",
+                    "isDraft": False,
+                    "additions": 35,
+                    "deletions": 1,
+                    "linesChanged": 36,
+                    "changedFiles": 2,
+                    "reviewState": {
+                        "latestReviewer": {
+                            "kind": "CHANGES_REQUESTED",
+                            "author": "brandonpayton",
+                            "at": "2026-07-03T14:18:00Z",
+                            "body": "Please adjust the narrow breakpoint.",
+                        },
+                        "latestAuthorActivity": None,
+                        "needsRereview": False,
+                    },
+                }
+            ],
+        },
         107: {
             "type": "issue",
             "title": "Already closed duplicate",
@@ -586,6 +643,10 @@ def summarize_source(source: dict) -> dict:
                 "url": pr.get("url"),
                 "state": pr.get("state"),
                 "mergedAt": pr.get("mergedAt"),
+                "isDraft": pr.get("isDraft"),
+                "reviewDecision": pr.get("reviewDecision"),
+                "checkState": pr.get("checkState") or check_state_for_pr(pr),
+                "reviewRequests": reviewer_logins(pr.get("reviewRequests") or []),
                 "labels": [label_name(label) for label in pr.get("labels", [])],
                 "linesChanged": pr.get("linesChanged"),
                 "changedFiles": pr.get("changedFiles"),
@@ -620,15 +681,18 @@ def candidate_prs_for_issue(repo: str, source: dict) -> list[dict]:
     candidates: dict[int, dict] = {}
     for number in direct_numbers:
         summary = fetch_pr_summary(repo, number)
-        if summary:
+        if not summary:
+            continue
+        if str(summary.get("state") or "").upper() == "OPEN":
+            candidates[number] = summary
+        elif candidate_recent_enough(source, summary) and (candidate_overlap(source, summary) >= 2 or positive_pr_reference_context(source, number)):
             candidates[number] = summary
 
-    if candidates:
-        for number in search_related_pr_numbers(repo, source):
-            if number not in candidates:
-                summary = fetch_pr_summary(repo, number)
-                if summary and candidate_recent_enough(source, summary) and candidate_overlap(source, summary) >= 2:
-                    candidates[number] = summary
+    for number in search_related_pr_numbers(repo, source):
+        if number not in candidates:
+            summary = fetch_pr_summary(repo, number)
+            if summary and candidate_recent_enough(source, summary) and candidate_overlap(source, summary) >= 2:
+                candidates[number] = summary
 
     return sorted(candidates.values(), key=lambda pr: (pr.get("linesChanged") or 0, pr.get("number") or 0))
 
@@ -645,11 +709,32 @@ def extract_pr_numbers(source: dict) -> list[int]:
         if number != current_number and number not in numbers:
             numbers.append(number)
 
-    for match in re.findall(r"github\.com/[^/\s]+/[^/\s]+/pull/(\d+)", text, re.I):
-        add(int(match))
-    for match in re.findall(r"(?<![A-Za-z0-9])#(\d{2,7})\b", text):
-        add(int(match))
+    for match in re.finditer(r"github\.com/[^/\s]+/[^/\s]+/pull/(\d+)", text, re.I):
+        if not pr_reference_is_causal_context(text, match.start()):
+            add(int(match.group(1)))
+    for match in re.finditer(r"(?<![A-Za-z0-9])#(\d{2,7})\b", text):
+        if not pr_reference_is_causal_context(text, match.start()):
+            add(int(match.group(1)))
     return numbers[:20]
+
+
+def pr_reference_is_causal_context(text: str, index: int) -> bool:
+    before = text[max(0, index - 96):index].lower()
+    if re.search(r"(after|since|caused by|regressed by|regression from|following)[^#\n]{0,48}$", before):
+        return True
+    return "not this bug" in before or "unrelated" in before
+
+
+def positive_pr_reference_context(source: dict, number: int) -> bool:
+    text = "\n".join([
+        source.get("body") or "",
+        "\n".join((comment.get("body") or "") for comment in source.get("comments", [])),
+    ])
+    for match in re.finditer(rf"(?<![A-Za-z0-9])#0*{number}\b|github\.com/[^/\s]+/[^/\s]+/pull/{number}\b", text, re.I):
+        window = text[max(0, match.start() - 96):match.end() + 96].lower()
+        if any(term in window for term in ["fix", "fixed", "resolve", "resolved", "addresses", "candidate", "working again", "will get playground working"]):
+            return True
+    return False
 
 
 def search_related_pr_numbers(repo: str, source: dict) -> list[int]:
@@ -737,7 +822,11 @@ def issue_keywords(text: str) -> list[str]:
 
 
 def fetch_pr_summary(repo: str, number: int) -> dict | None:
-    fields = ["number", "title", "url", "state", "author", "createdAt", "updatedAt", "closedAt", "mergedAt", "isDraft", "additions", "deletions", "changedFiles", "labels", "reviews", "comments", "commits"]
+    fields = [
+        "number", "title", "url", "state", "author", "createdAt", "updatedAt", "closedAt", "mergedAt",
+        "isDraft", "additions", "deletions", "changedFiles", "labels", "reviews", "latestReviews",
+        "reviewDecision", "reviewRequests", "statusCheckRollup", "comments", "commits",
+    ]
     try:
         raw = subprocess.check_output(
             ["gh", "pr", "view", str(number), "--repo", repo, "--json", ",".join(fields)],
@@ -749,6 +838,7 @@ def fetch_pr_summary(repo: str, number: int) -> dict | None:
         return None
     pr["linesChanged"] = int(pr.get("additions") or 0) + int(pr.get("deletions") or 0)
     pr["authorLogin"] = (pr.get("author") or {}).get("login") if isinstance(pr.get("author"), dict) else pr.get("author")
+    pr["checkState"] = check_state_for_pr(pr)
     pr["reviewState"] = review_state_for_pr(pr)
     return pr
 
@@ -760,21 +850,63 @@ def review_state_for_pr(source: dict) -> dict:
     return {
         "latestReviewer": latest_feedback,
         "latestAuthorActivity": latest_author,
+        "reviewDecision": source.get("reviewDecision"),
+        "reviewRequests": reviewer_logins(source.get("reviewRequests") or []),
+        "checkState": source.get("checkState") or check_state_for_pr(source),
         "needsRereview": bool(latest_feedback and latest_author and timestamp_value(latest_author.get("at")) > timestamp_value(latest_feedback.get("at"))),
     }
 
 
 def latest_reviewer_feedback(source: dict, author: str | None) -> dict | None:
     events = []
-    for review in source.get("reviews") or []:
+    for review in (source.get("latestReviews") or source.get("reviews") or []):
         reviewer = (review.get("author") or {}).get("login") if isinstance(review.get("author"), dict) else None
-        if reviewer and reviewer != author and review.get("state") in {"CHANGES_REQUESTED", "COMMENTED"}:
+        if reviewer and reviewer != author and not is_automated_login(reviewer) and review.get("state") in {"CHANGES_REQUESTED", "COMMENTED", "APPROVED"}:
             events.append({"kind": review.get("state"), "author": reviewer, "at": review.get("submittedAt"), "body": review.get("body") or ""})
     for comment in source.get("comments") or []:
         commenter = (comment.get("author") or {}).get("login") if isinstance(comment.get("author"), dict) else None
-        if commenter and commenter != author:
+        if commenter and commenter != author and not is_automated_login(commenter):
             events.append({"kind": "COMMENTED", "author": commenter, "at": comment.get("createdAt"), "body": comment.get("body") or ""})
     return latest_event(events)
+
+
+def is_automated_login(login: str) -> bool:
+    lowered = login.lower()
+    return lowered.endswith("[bot]") or lowered in {"github-actions", "copilot-pull-request-reviewer"}
+
+
+def reviewer_logins(review_requests: list) -> list[str]:
+    logins = []
+    for request in review_requests:
+        login = request.get("login") if isinstance(request, dict) else None
+        if login and not is_automated_login(login) and login not in logins:
+            logins.append(login)
+    return logins
+
+
+def check_state_for_pr(source: dict) -> str:
+    checks = source.get("statusCheckRollup") or []
+    if not checks:
+        return "unknown"
+    has_running = False
+    has_failure = False
+    has_success = False
+    for check in checks:
+        status = str(check.get("status") or "").upper()
+        conclusion = str(check.get("conclusion") or "").upper()
+        if status and status != "COMPLETED":
+            has_running = True
+        elif conclusion in {"FAILURE", "TIMED_OUT", "ACTION_REQUIRED", "CANCELLED"}:
+            has_failure = True
+        elif conclusion in {"SUCCESS", "NEUTRAL", "SKIPPED"}:
+            has_success = True
+    if has_failure:
+        return "failing"
+    if has_running:
+        return "pending"
+    if has_success:
+        return "success"
+    return "unknown"
 
 
 def latest_author_activity(source: dict, author: str | None) -> dict | None:
@@ -844,7 +976,7 @@ def issue_evidence_rows(source: dict, suggestion: dict) -> list[dict]:
 
 
 def action_links(item_type: str, source: dict, suggestion: dict) -> list[dict]:
-    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path", "no-action", "close-solved"}:
+    if item_type != "issue" or suggestion.get("actionId") not in {"has-candidate-pr", "competing-prs", "narrow-fast-path", "needs-rereview", "waiting-author", "fast-merge", "no-action", "close-solved"}:
         return []
     links = []
     candidates = source.get("candidatePRs") or []
@@ -852,7 +984,16 @@ def action_links(item_type: str, source: dict, suggestion: dict) -> list[dict]:
         candidates = sorted(candidates, key=lambda pr: str(pr.get("state") or "").upper() != "MERGED")
     for pr in candidates[:3]:
         if pr.get("url"):
-            prefix = "Merged PR" if suggestion.get("actionId") == "close-solved" or str(pr.get("state") or "").upper() == "MERGED" else "Review PR"
+            if suggestion.get("actionId") == "close-solved" or str(pr.get("state") or "").upper() == "MERGED":
+                prefix = "Merged PR"
+            elif suggestion.get("actionId") == "needs-rereview":
+                prefix = "Re-review PR"
+            elif suggestion.get("actionId") == "fast-merge":
+                prefix = "Merge PR"
+            elif suggestion.get("actionId") in {"no-action", "waiting-author"}:
+                prefix = "Open PR"
+            else:
+                prefix = "Review PR"
             links.append(candidate_pr_link(pr, label=f"{prefix} #{pr.get('number')}"))
     return links
 
@@ -910,13 +1051,15 @@ def candidate_review_links(candidates: list[dict]) -> list[dict]:
     for pr in candidates[:2]:
         review = pr.get("reviewState") or {}
         feedback = review.get("latestReviewer")
-        if not feedback or feedback.get("kind") != "CHANGES_REQUESTED":
+        if not feedback:
             continue
         kind = feedback.get("kind", "").lower().replace("_", " ")
         if review.get("needsRereview"):
             meta = f"author follow-up after {kind}"
+        elif feedback.get("kind") == "APPROVED":
+            meta = f"approved by @{feedback.get('author')}"
         else:
-            meta = f"latest feedback is {kind} from @{feedback.get('author')}"
+            meta = f"reviewed by @{feedback.get('author')} ({kind})"
         links.append(candidate_pr_link(pr, meta=meta))
     return links
 
@@ -1020,7 +1163,7 @@ def discussion_text(source: dict) -> str:
 
 def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) -> str:
     relevant = {
-        "triageVersion": 9,
+        "triageVersion": 11,
         "repo": repo,
         "type": item_type,
         "number": number,
@@ -1042,6 +1185,10 @@ def compute_fingerprint(repo: str, item_type: str, number: int, source: dict) ->
                 "title": pr.get("title"),
                 "state": pr.get("state"),
                 "mergedAt": pr.get("mergedAt"),
+                "isDraft": pr.get("isDraft"),
+                "reviewDecision": pr.get("reviewDecision"),
+                "reviewRequests": reviewer_logins(pr.get("reviewRequests") or []),
+                "checkState": pr.get("checkState") or check_state_for_pr(pr),
                 "linesChanged": pr.get("linesChanged"),
                 "reviewState": pr.get("reviewState"),
             }
@@ -1093,12 +1240,13 @@ def tail_reviews(reviews: list, n: int) -> list:
 def generate_suggestion(repo: str, item_type: str, number: int, source: dict) -> dict:
     if PROVIDER == "codex":
         try:
-            return codex_suggestion(repo, item_type, number, source)
+            suggestion = codex_suggestion(repo, item_type, number, source)
         except Exception as exc:
-            fallback = heuristic_suggestion(item_type, source)
-            fallback["justification"] += f" Codex provider failed, so heuristic fallback was used: {type(exc).__name__}: {exc}"
-            return fallback
-    return heuristic_suggestion(item_type, source)
+            suggestion = heuristic_suggestion(item_type, source)
+            suggestion["justification"] += f" Codex provider failed, so heuristic fallback was used: {type(exc).__name__}: {exc}"
+    else:
+        suggestion = heuristic_suggestion(item_type, source)
+    return normalize_suggestion(suggestion, source, item_type)
 
 
 def codex_suggestion(repo: str, item_type: str, number: int, source: dict) -> dict:
@@ -1127,7 +1275,7 @@ def codex_suggestion(repo: str, item_type: str, number: int, source: dict) -> di
         Path(out_path).unlink(missing_ok=True)
     except Exception:
         pass
-    return normalize_suggestion(json.loads(raw), source)
+    return json.loads(raw)
 
 
 def compact_for_prompt(source: dict) -> dict:
@@ -1281,16 +1429,37 @@ def heuristic_suggestion(item_type: str, source: dict) -> dict:
         smallest = candidates[0]
         merged = merged_candidate_pr(candidates)
         if merged:
-            return choose("close-solved", "merged-pr", "Close as solved", f"Candidate PR #{merged['number']} is merged, so the issue should be closed as solved with a short pointer to that PR.")
+            return with_next_action(
+                choose("close-solved", "merged-pr", "Close as solved", f"Candidate PR #{merged['number']} is merged, so the issue should be closed as solved with a short pointer to that PR."),
+                f"Close as solved — PR #{merged['number']} merged",
+                short="Close",
+                detail=f"PR #{merged['number']} is merged; close the issue as completed after posting the drafted pointer.",
+            )
         active = active_candidate_pr(candidates)
         if active:
-            return choose("no-action", "active-pr", "No issue action", f"This issue is already being handled in active PR #{active['number']}; keep the work on that PR instead of mutating the issue.")
+            return active_candidate_suggestion(active, choose)
         broader = [pr for pr in candidates[1:] if (pr.get("linesChanged") or 0) >= max(80, (smallest.get("linesChanged") or 0) * 4)]
         if broader:
-            return choose("narrow-fast-path", "small-vs-broad", "Use narrow candidate first", f"The issue already has reproduction context and candidate PRs; review #{smallest['number']} first because it is the smallest path while broader PRs change more surface area.")
+            return with_next_action(
+                choose("narrow-fast-path", "small-vs-broad", "Use narrow candidate first", f"The issue already has reproduction context and candidate PRs; review #{smallest['number']} first because it is the smallest path while broader PRs change more surface area."),
+                f"Review narrow PR #{smallest['number']} first",
+                short="Review",
+            )
         if len(candidates) > 1:
-            return choose("competing-prs", "choose-path", "Choose implementation path", "Multiple candidate PRs address the report, so maintainers should choose a path before asking for more review.")
-        return choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", f"The discussion already has reproduction context and candidate PR #{smallest['number']}; the useful next action is to review that PR, not post another issue comment.")
+            return with_next_action(
+                choose("competing-prs", "choose-path", "Choose implementation path", "Multiple candidate PRs address the report, so maintainers should choose a path before asking for more review."),
+                "Choose PR path",
+                short="Choose",
+            )
+        if reproduction_evidence(source):
+            detail = f"The discussion already has reproduction context and candidate PR #{smallest['number']}; the useful next action is to review that PR, not post another issue comment."
+        else:
+            detail = f"The issue already has candidate PR #{smallest['number']}; the useful next action is to review that PR, not post another issue comment."
+        return with_next_action(
+            choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", detail),
+            f"Review PR #{smallest['number']}",
+            short="Review",
+        )
 
     if item_type == "issue" and likely_duplicate_issue(source):
         duplicate = source["possibleDuplicates"][0]
@@ -1365,9 +1534,91 @@ def active_candidate_pr(candidates: list[dict]) -> dict | None:
         if str(pr.get("state") or "").upper() != "OPEN":
             continue
         review = pr.get("reviewState") or {}
-        if review.get("latestReviewer") or review.get("latestAuthorActivity"):
+        if pr.get("isDraft") or review.get("latestReviewer") or review.get("reviewRequests"):
             return pr
     return None
+
+
+def active_candidate_suggestion(pr: dict, choose) -> dict:
+    number = pr.get("number")
+    review = pr.get("reviewState") or {}
+    reviewer = review.get("latestReviewer") or {}
+    requested = review.get("reviewRequests") or reviewer_logins(pr.get("reviewRequests") or [])
+    check_state = review.get("checkState") or pr.get("checkState") or check_state_for_pr(pr)
+
+    if pr.get("isDraft"):
+        return with_next_action(
+            choose("waiting-author", "draft-pr", "Waiting on author", f"Candidate PR #{number} is still a draft, so issue triage should wait until it is marked ready."),
+            f"Wait for PR #{number} to be ready",
+            short="Wait",
+        )
+
+    if review.get("needsRereview") and reviewer.get("author"):
+        return with_next_action(
+            choose("needs-rereview", "author-followed-up", "Ready for re-review", f"PR #{number} has author activity after @{reviewer['author']} reviewed it, so the useful action is re-review on that PR."),
+            f"Re-review PR #{number}",
+            short="Review",
+            detail=f"@{reviewer['author']} reviewed earlier and the author followed up afterward.",
+        )
+
+    if reviewer.get("author"):
+        author = reviewer["author"]
+        kind = str(reviewer.get("kind") or "reviewed").lower().replace("_", " ")
+        if reviewer.get("kind") == "APPROVED":
+            if check_state == "success":
+                return with_next_action(
+                    choose("fast-merge", "small-tested", "Ready to merge", f"PR #{number} is approved by @{author} and checks are passing, so the issue can stay quiet while the PR is merged."),
+                    f"Merge PR #{number}",
+                    short="Merge",
+                    detail=f"@{author} approved the PR and checks are passing.",
+                )
+            if check_state == "pending":
+                return with_next_action(
+                    choose("no-action", "active-pr", "No issue action", f"PR #{number} is approved by @{author}, but checks are still pending; no issue comment is needed."),
+                    f"Wait for CI on PR #{number}",
+                    short="Wait",
+                )
+            if check_state == "failing":
+                return with_next_action(
+                    choose("no-action", "active-pr", "No issue action", f"PR #{number} is approved by @{author}, but checks are failing; keep the work on the PR."),
+                    f"Wait — CI failing on PR #{number}",
+                    short="Wait",
+                )
+            return with_next_action(
+                choose("no-action", "active-pr", "No issue action", f"PR #{number} is approved by @{author}; keep the work on that PR instead of mutating the issue."),
+                f"None needed — @{author} approved PR #{number}",
+                short="None",
+            )
+        return with_next_action(
+            choose("no-action", "active-pr", "No issue action", f"PR #{number} already has {kind} feedback from @{author}; keep the issue quiet while the PR thread carries the work."),
+            f"Wait — @{author} reviewed PR #{number}",
+            short="Wait",
+        )
+
+    if requested:
+        reviewer_text = " and ".join(f"@{login}" for login in requested[:2])
+        return with_next_action(
+            choose("no-action", "active-pr", "No issue action", f"PR #{number} already has a review requested from {reviewer_text}; no issue comment is needed."),
+            f"Wait for {reviewer_text} to review PR #{number}",
+            short="Wait",
+        )
+
+    return with_next_action(
+        choose("has-candidate-pr", "issue-has-pr", "Has candidate PR", f"The issue has candidate PR #{number}, but no human review signal is visible yet."),
+        f"Review PR #{number}",
+        short="Review",
+    )
+
+
+def with_next_action(suggestion: dict, long: str, short: str | None = None, detail: str | None = None, list_text: str | None = None) -> dict:
+    suggestion["nextAction"] = {
+        "short": short or long,
+        "list": list_text or long,
+        "long": long,
+    }
+    if detail:
+        suggestion["nextAction"]["detail"] = detail
+    return suggestion
 
 
 def merged_candidate_pr(candidates: list[dict]) -> dict | None:
@@ -1634,13 +1885,66 @@ def short_subject(title: str) -> str:
     return compact[:93].rstrip() + "…"
 
 
-def normalize_suggestion(suggestion: dict, source: dict) -> dict:
+def normalize_suggestion(suggestion: dict, source: dict, item_type: str) -> dict:
     suggestion.setdefault("publicComment", "")
     suggestion.setdefault("operations", [])
     suggestion.setdefault("justification", "No justification provided.")
     suggestion.setdefault("shortTitle", suggestion.get("status") or suggestion.get("actionId") or "Suggested action")
+    suggestion.setdefault("nextAction", default_next_action(suggestion, source, item_type))
     filter_known_label_operations(suggestion)
     return suggestion
+
+
+def default_next_action(suggestion: dict, source: dict, item_type: str) -> dict:
+    action_id = suggestion.get("actionId")
+    variant_id = suggestion.get("variantId")
+    candidates = source.get("candidatePRs") or []
+
+    if action_id == "no-action":
+        return {"short": "None", "list": "None needed", "long": "None needed"}
+    if action_id == "waiting-author":
+        if variant_id == "draft-pr":
+            return {"short": "Wait", "list": "Wait for ready", "long": "Wait for author to mark ready"}
+        if variant_id == "changes-requested":
+            return {"short": "Wait", "list": "Wait for changes", "long": "Wait for author changes"}
+        return {"short": "Wait", "list": "Wait for response", "long": "Wait for contributor response"}
+    if action_id == "close-not-actionable":
+        if variant_id == "out-of-scope":
+            return {"short": "Close", "list": "Close—out of scope", "long": "Close issue—out of scope"}
+        if variant_id == "stale-waiting":
+            return {"short": "Close", "list": "Close stale issue", "long": "Close stale issue"}
+        if variant_id == "research-note":
+            return {"short": "Close", "list": "Close research note", "long": "Close research note"}
+        return {"short": "Close", "list": "Close—can’t act", "long": "Close issue—can’t act yet"}
+    if action_id == "close-solved":
+        merged = merged_candidate_pr(candidates)
+        suffix = f" — PR #{merged['number']} merged" if merged and merged.get("number") else ""
+        return {"short": "Close", "list": f"Close as solved{suffix}", "long": f"Close as solved{suffix}"}
+    if item_type == "issue" and action_id in {"has-candidate-pr", "needs-rereview", "fast-merge"} and candidates:
+        candidate = active_candidate_pr(candidates) or candidates[0]
+        number = candidate.get("number")
+        if action_id == "needs-rereview":
+            return {"short": "Review", "list": f"Re-review PR #{number}", "long": f"Re-review PR #{number}"}
+        if action_id == "fast-merge":
+            return {"short": "Merge", "list": f"Merge PR #{number}", "long": f"Merge PR #{number}"}
+        return {"short": "Review", "list": f"Review PR #{number}", "long": f"Review PR #{number}"}
+
+    copy = {
+        "fast-merge": ("Review", "Fast-review PR", "Fast-review PR"),
+        "medium-review": ("Review", "Review with budget", "Review with explicit budget"),
+        "needs-proof": ("Ask", "Ask for details", "Ask for reproduction details"),
+        "needs-design": ("Proposal", "Move to proposal", "Move to proposal/design"),
+        "has-candidate-pr": ("Review", "Review the PR", "Review the candidate PR"),
+        "needs-rereview": ("Review", "Re-review PR", "Re-review PR"),
+        "competing-prs": ("Choose", "Choose PR path", "Choose PR path"),
+        "narrow-fast-path": ("Review", "Review narrow PR", "Review narrow PR first"),
+        "needs-execution-plan": ("Plan", "Ask for plan", "Ask for execution plan"),
+        "needs-owner": ("Owner", "Find owner", "Find an owner"),
+        "no-capacity": ("Defer", "Defer—no capacity", "Defer—no maintainer capacity"),
+        "duplicate-of": ("Close", "Close as duplicate", "Close as duplicate"),
+    }
+    short, list_text, long = copy.get(action_id, ("Action", suggestion.get("status") or "Decide next step", suggestion.get("status") or "Decide next step"))
+    return {"short": short, "list": list_text, "long": long}
 
 
 def load_actions() -> dict:

@@ -38,6 +38,8 @@ For **Fast merge** and **Medium review** suggestions, the panel also shows **Ask
 
 The action switcher uses operator-oriented labels such as **None needed**, **Wait for response**, **Review the PR**, **Review narrow PR**, **Ask for details**, **Close as solved**, and **Close as duplicate** instead of queue names alone. More specific paths such as candidate PRs, re-review, no-capacity, or narrow-fast-path appear as inferred suggestions and evidence, not as every option in the menu.
 
+The companion keeps the fixed stewardship action IDs separate from the visible next-action wording. That lets the UI stay constrained while still saying the more useful thing, for example **Review PR #3882**, **Wait — @brandonpayton reviewed PR #2013**, **Re-review PR #3882**, or **Close as solved — PR #3886 merged**.
+
 ## Screenshot
 
 ![Close quickly triage workflow](docs/assets/triage-copilot-scenario-close-not-actionable.png)
